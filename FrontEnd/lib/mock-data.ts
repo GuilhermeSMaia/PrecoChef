@@ -1,4 +1,4 @@
-/* 
+
 import type { Market, Product, Price } from "./types"
 
 export const mockMarkets: Market[] = [
@@ -89,4 +89,4 @@ export const mockPrices: Price[] = [
   { id: "pr17", product_id: "p6", market_id: "m2", price: 5.99, last_updated: "2024-01-15T10:00:00Z" },
   { id: "pr18", product_id: "p6", market_id: "m3", price: 6.79, last_updated: "2024-01-15T10:00:00Z" },
 ]
-*/
+

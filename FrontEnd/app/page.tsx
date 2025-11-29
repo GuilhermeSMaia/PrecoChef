@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card"
 export default function Home() {
   return (
     <div className="min-h-screen gradient-bg">
-      {/* Hero Section */}
+      
       <div className="container mx-auto px-4 py-16 md:py-24">
         <div className="flex flex-col items-center text-center max-w-4xl mx-auto animate-fade-in">
 
@@ -32,7 +32,6 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Features Section */}
       <div className="container mx-auto px-4 py-16">
         <div className="text-center mb-16">
           <h2 className="text-3xl md:text-4xl font-bold mb-4">Como funciona</h2>

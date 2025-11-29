@@ -24,7 +24,6 @@ export function ShoppingList() {
   const [listName, setListName] = useState("Minha Lista de Compras")
 
   const handleExportPDF = () => {
-    // Em um app real, isso geraria um PDF
     toast({
       title: "PDF gerado",
       description: "Sua lista de compras foi exportada como PDF.",
@@ -32,7 +31,6 @@ export function ShoppingList() {
   }
 
   const handleSaveList = () => {
-    // Em um app real, isso salvaria a lista no banco de dados
     toast({
       title: "Lista salva",
       description: "Sua lista de compras foi salva com sucesso.",
@@ -47,7 +45,7 @@ export function ShoppingList() {
   // Agrupar itens por mercado
   const itemsByMarket: Record<string, typeof items> = {}
   items.forEach((item) => {
-    const marketId = item.market.id
+    const marketId = item.mercado.id
     if (!itemsByMarket[marketId]) {
       itemsByMarket[marketId] = []
     }
@@ -103,8 +101,7 @@ export function ShoppingList() {
                 <CardHeader className="pb-2">
                   <CardTitle className="flex justify-between items-center">
                     <div>
-                      <span>{marketData.market.name}</span>
-                      <p className="text-sm text-muted-foreground font-normal">{marketData.market.address}</p>
+                      <span>{marketData.mercado.nome}</span>
                     </div>
                     <span>R$ {marketData.total.toFixed(2).replace(".", ",")}</span>
                   </CardTitle>
@@ -113,13 +110,13 @@ export function ShoppingList() {
                   <ul className="space-y-2">
                     {marketItems.map((item) => (
                       <li
-                        key={`${item.product.id}-${item.market.id}`}
+                        key={`${item.produto.id}-${item.mercado.id}`}
                         className="flex items-center justify-between py-2 border-b last:border-0 theme-transition"
                       >
                         <div className="flex-1">
-                          <p className="font-medium">{item.product.name}</p>
+                          <p className="font-medium">{item.produto.produtoname}</p>
                           <p className="text-sm text-muted-foreground">
-                            {item.product.unit} - R$ {item.price.price.toFixed(2).replace(".", ",")}
+                            {item.produto.medida} - R$ {item.preco.preco.toFixed(2).replace(".", ",")}
                           </p>
                         </div>
 
@@ -128,18 +125,18 @@ export function ShoppingList() {
                             variant="outline"
                             size="icon"
                             className="h-8 w-8 theme-transition"
-                            onClick={() => updateQuantity(item.product.id, item.market.id, item.quantity - 1)}
+                            onClick={() => updateQuantity(item.produto.id, item.mercado.id, item.quantidade - 1)}
                           >
                             <Minus className="h-3 w-3" />
                           </Button>
 
-                          <span className="w-8 text-center">{item.quantity}</span>
+                          <span className="w-8 text-center">{item.quantidade}</span>
 
                           <Button
                             variant="outline"
                             size="icon"
                             className="h-8 w-8 theme-transition"
-                            onClick={() => updateQuantity(item.product.id, item.market.id, item.quantity + 1)}
+                            onClick={() => updateQuantity(item.produto.id, item.mercado.id, item.quantidade + 1)}
                           >
                             <Plus className="h-3 w-3" />
                           </Button>
@@ -148,7 +145,7 @@ export function ShoppingList() {
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8 text-destructive theme-transition"
-                            onClick={() => removeItem(item.product.id, item.market.id)}
+                            onClick={() => removeItem(item.produto.id, item.mercado.id)}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -179,7 +176,7 @@ export function ShoppingList() {
                 <p className="font-medium">Total por mercado:</p>
                 {Object.entries(totalByMarket).map(([marketId, marketData]) => (
                   <div key={marketId} className="flex justify-between text-sm">
-                    <span>{marketData.market.name}:</span>
+                    <span>{marketData.mercado.nome}:</span>
                     <span>R$ {marketData.total.toFixed(2).replace(".", ",")}</span>
                   </div>
                 ))}

@@ -16,7 +16,7 @@ const navItems = [
   { name: "Produtos", path: "/produtos" },
   { name: "Comparador", path: "/comparador" },
   { name: "Mercados", path: "/mercados", icon: Store },
-  { name: "Lista de Compras", path: "/lista" },
+  //{ name: "Lista de Compras", path: "/lista" },
   { name: "Admin", path: "/admin", icon: Settings },
 ]
 

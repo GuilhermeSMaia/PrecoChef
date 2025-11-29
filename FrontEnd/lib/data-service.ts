@@ -1,19 +1,19 @@
-import type { Market, Product, Price, ProductWithPrices } from "./types"
+import type {  Mercado, Produto, Preco, ProdutoWithPrices } from "./types"
 import { mockMarkets, mockProducts, mockPrices } from "./mock-data"
 
 export class DataService {
-  static async getMarkets(): Promise<Market[]> {
+  static async getMarkets(): Promise<Mercado[]> {
     // Simular delay de API
     await new Promise((resolve) => setTimeout(resolve, 100))
     return mockMarkets
   }
 
-  static async getProducts(): Promise<Product[]> {
+  static async getProducts(): Promise<Produto[]> {
     await new Promise((resolve) => setTimeout(resolve, 100))
     return mockProducts
   }
 
-  static async getPrices(): Promise<Price[]> {
+  static async getPrices(): Promise<Preco[]> {
     await new Promise((resolve) => setTimeout(resolve, 100))
     return mockPrices
   }
@@ -22,7 +22,7 @@ export class DataService {
     search?: string
     category?: string
     sortBy?: string
-  }): Promise<ProductWithPrices[]> {
+  }): Promise<ProdutoWithPrices[]> {
     const [products, prices, markets] = await Promise.all([this.getProducts(), this.getPrices(), this.getMarkets()])
 
     let filteredProducts = products
@@ -30,16 +30,16 @@ export class DataService {
     // Aplicar filtros
     if (filters?.search) {
       filteredProducts = filteredProducts.filter((product) =>
-        product.name.toLowerCase().includes(filters.search!.toLowerCase()),
+        product.produtoname.toLowerCase().includes(filters.search!.toLowerCase()),
       )
     }
 
     if (filters?.category) {
-      filteredProducts = filteredProducts.filter((product) => product.category === filters.category)
+      filteredProducts = filteredProducts.filter((product) => product.categoria === filters.category)
     }
 
     // Combinar produtos com preços e mercados
-    const productsWithPrices: ProductWithPrices[] = filteredProducts.map((product) => {
+    const ProdutoWithPrices: ProdutoWithPrices[] = filteredProducts.map((product) => {
       const productPrices = prices
         .filter((price) => price.product_id === product.id)
         .map((price) => ({
@@ -88,7 +88,7 @@ export class DataService {
     }
   }
 
-  static async searchProducts(query: string): Promise<Product[]> {
+  static async searchProducts(query: string): Promise<Produto[]> {
     const products = await this.getProducts()
     return products.filter((product) => product.name.toLowerCase().includes(query.toLowerCase()))
   }

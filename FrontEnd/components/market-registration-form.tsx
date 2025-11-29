@@ -14,7 +14,7 @@ import { Loader2, Store, CheckCircle, MapPin, Phone, Mail } from "lucide-react"
 
 const MarketSchema = z.object({
   mercadoId: z.string().optional(),
-  name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres").max(100, "Nome muito longo"),
+  name: z.string().min(3, "Nome deve ter pelo menos 3 caracteres").max(100, "Nome muito longo"),
 })
 
 type MarketRegistrationFormProps = {

@@ -3,10 +3,10 @@
 import { useState } from "react"
 import { ProductComparison } from "@/components/product-comparison"
 import { ProductSelector } from "@/components/product-selector"
-import type { Product } from "@/lib/types"
+import type { Produto } from "@/lib/types"
 
 export default function ComparadorPage() {
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
+  const [selectedProduct, setSelectedProduct] = useState<Produto | null>(null)
 
   return (
     <div className="container mx-auto px-4 py-8">

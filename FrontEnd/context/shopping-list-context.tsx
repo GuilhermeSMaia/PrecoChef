@@ -4,18 +4,18 @@ import { createContext, useContext, useState, useEffect, type ReactNode } from "
 import { useToast } from "@/components/ui/use-toast"
 
 // Atualizar as importações e tipos
-import type { Market, Product, Price, ShoppingItem } from "@/lib/types"
+import type { ShoppingItem, Produto, Preco, Mercado } from "@/lib/types"
 
 // Remover a definição antiga de Product e ShoppingItem
 
 // Atualizar o tipo ShoppingListContextType
 type ShoppingListContextType = {
   items: ShoppingItem[]
-  addItem: (product: Product, price: Price, market: Market) => void
+  addItem: (produto: Produto, preco: Preco, mercado: Mercado) => void
   removeItem: (productId: string, marketId: string) => void
   updateQuantity: (productId: string, marketId: string, quantity: number) => void
   clearList: () => void
-  getTotalByMarket: () => { [key: string]: { market: Market; total: number } }
+  getTotalByMarket: () => { [key: string]: { mercado: Mercado; total: number } }
   getTotalSavings: () => number
   getTotalItems: () => number
   getTotalValue: () => number
@@ -45,21 +45,21 @@ export function ShoppingListProvider({ children }: { children: ReactNode }) {
   }, [items])
 
   // Atualizar a função addItem
-  const addItem = (product: Product, price: Price, market: Market) => {
+  const addItem = (produto: Produto, preco: Preco, mercado: Mercado) => {
     setItems((currentItems) => {
       // Verificar se o produto do mesmo mercado já está na lista
       const existingItemIndex = currentItems.findIndex(
-        (item) => item.product.id === product.id && item.market.id === market.id,
+        (item) => item.produto.id === produto.id && item.mercado.id === mercado.id,
       )
 
       if (existingItemIndex >= 0) {
         // Atualizar quantidade se já existir
         const updatedItems = [...currentItems]
-        updatedItems[existingItemIndex].quantity += 1
+        updatedItems[existingItemIndex].quantidade += 1
 
         toast({
           title: "Quantidade atualizada",
-          description: `${product.name} (${market.name}) agora tem ${updatedItems[existingItemIndex].quantity} unidades`,
+          description: `${produto.produtoname} (${mercado.nome}) agora tem ${updatedItems[existingItemIndex].quantidade} unidades`,
         })
 
         return updatedItems
@@ -67,38 +67,38 @@ export function ShoppingListProvider({ children }: { children: ReactNode }) {
         // Adicionar novo item
         toast({
           title: "Produto adicionado",
-          description: `${product.name} de ${market.name} foi adicionado à sua lista`,
+          description: `${produto.produtoname} de ${mercado.nome} foi adicionado à sua lista`,
         })
 
-        return [...currentItems, { product, price, market, quantity: 1 }]
+        return [...currentItems, { produto, preco, mercado, quantidade: 1 }]
       }
     })
   }
 
   // Atualizar a função removeItem
-  const removeItem = (productId: string, marketId: string) => {
+  const removeItem = (produtoId: string, mercadoId: string) => {
     setItems((currentItems) => {
-      const itemToRemove = currentItems.find((item) => item.product.id === productId && item.market.id === marketId)
+      const itemToRemove = currentItems.find((item) => item.produto.id === produtoId && item.mercado.id === mercadoId)
       if (itemToRemove) {
         toast({
           title: "Produto removido",
-          description: `${itemToRemove.product.name} (${itemToRemove.market.name}) foi removido da sua lista`,
+          description: `${itemToRemove.produto.produtoname} (${itemToRemove.mercado.nome}) foi removido da sua lista`,
         })
       }
-      return currentItems.filter((item) => !(item.product.id === productId && item.market.id === marketId))
+      return currentItems.filter((item) => !(item.produto.id === produtoId && item.mercado.id === mercadoId))
     })
   }
 
   // Atualizar a função updateQuantity
-  const updateQuantity = (productId: string, marketId: string, quantity: number) => {
+  const updateQuantity = (produtoId: string, mercadoId: string, quantity: number) => {
     if (quantity <= 0) {
-      removeItem(productId, marketId)
+      removeItem(produtoId, mercadoId)
       return
     }
 
     setItems((currentItems) =>
       currentItems.map((item) =>
-        item.product.id === productId && item.market.id === marketId ? { ...item, quantity } : item,
+        item.produto.id === produtoId && item.mercado.id === mercadoId ? { ...item, quantity } : item,
       ),
     )
   }
@@ -111,19 +111,19 @@ export function ShoppingListProvider({ children }: { children: ReactNode }) {
     })
   }
 
-  // Atualizar a função getTotalByMarket
-  const getTotalByMarket = () => {
-    const totals: { [key: string]: { market: Market; total: number } } = {}
+  // Atualizar a função getTotalBymercado
+  const getTotalByMercado = () => {
+    const totals: { [key: string]: { mercado: Mercado; total: number } } = {}
 
     items.forEach((item) => {
-      const marketId = item.market.id
-      const itemTotal = item.price.price * item.quantity
+      const marketId = item.mercado.id
+      const itemTotal = item.preco.preco * item.quantidade
 
       if (totals[marketId]) {
         totals[marketId].total += itemTotal
       } else {
         totals[marketId] = {
-          market: item.market,
+          mercado: item.mercado,
           total: itemTotal,
         }
       }
@@ -133,24 +133,20 @@ export function ShoppingListProvider({ children }: { children: ReactNode }) {
   }
 
   const getTotalSavings = () => {
-    // Implementação simplificada - em um cenário real, precisaríamos comparar com preços médios
-    // ou com o preço mais alto de cada produto
     let savings = 0
-    const productGroups: { [key: string]: Product[] } = {}
+    const produtoGroups: { [key: string]: Produto[] } = {}
 
-    // Agrupar produtos pelo nome para comparação
     items.forEach((item) => {
-      const productName = item.product.name
-      if (!productGroups[productName]) {
-        productGroups[productName] = []
+      const produtoNome = item.produto.produtoname
+      if (!produtoGroups[produtoNome]) {
+        produtoGroups[produtoNome] = []
       }
-      productGroups[productName].push(item.product)
+      produtoGroups[produtoNome].push(item.produto)
     })
 
-    // Calcular economia para cada grupo de produtos
-    Object.values(productGroups).forEach((products) => {
-      if (products.length > 1) {
-        const prices = products.map((p) => p.price)
+    Object.values(produtoGroups).forEach((produto) => {
+      if (produto.length > 1) {
+        const prices = produto.map((p) => p.price)
         const maxPrice = Math.max(...prices)
         const minPrice = Math.min(...prices)
         savings += maxPrice - minPrice
@@ -160,16 +156,14 @@ export function ShoppingListProvider({ children }: { children: ReactNode }) {
     return savings
   }
 
-  // Adicionar novas funções utilitárias
   const getTotalItems = () => {
-    return items.reduce((acc, item) => acc + item.quantity, 0)
+    return items.reduce((acc, item) => acc + item.quantidade, 0)
   }
 
   const getTotalValue = () => {
-    return items.reduce((acc, item) => acc + item.price.price * item.quantity, 0)
+    return items.reduce((acc, item) => acc + item.preco.preco * item.quantidade, 0)
   }
 
-  // Atualizar o provider value
   return (
     <ShoppingListContext.Provider
       value={{
@@ -178,7 +172,7 @@ export function ShoppingListProvider({ children }: { children: ReactNode }) {
         removeItem,
         updateQuantity,
         clearList,
-        getTotalByMarket,
+        getTotalByMercado,
         getTotalSavings,
         getTotalItems,
         getTotalValue,

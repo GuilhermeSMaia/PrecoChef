@@ -1,8 +1,3 @@
-//endpoint para encontrar o mercado pelo id: http://0.0.0.0:8080/mercados/getById/{id}
-//Endpoint para encontrar o nome, medida e id dos produtos: http://0.0.0.0:8080/produtos/getAllNames
-//endpoint para registrar o preço do produto no mercado: http://0.0.0.0:8080/preco/definir
-//o endpoint precisa receber o {Long mercadoId, String nomeProduto, BigDecimal preco}
-
 "use client";
 
 import { useState, useEffect } from "react";
@@ -55,8 +50,6 @@ import {
   Store,
   Home,
 } from "lucide-react";
-import { mockProducts } from "@/lib/mock-data";
-import { mockMarkets } from "@/lib/mock-data";
 import Link from "next/link";
 
 const priceSchema = z.object({
@@ -391,7 +384,6 @@ export default function SetProductPricePage() {
                               onChange={(e) => {
                                 const formatted = formatPrice(e.target.value);
                                 field.onChange(formatted);
-                                console.log("Price input:", formatted);
                               }}
                               className="pl-10 theme-transition"
                               disabled={isSubmitting}

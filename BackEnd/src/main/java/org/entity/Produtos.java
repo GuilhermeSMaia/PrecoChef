@@ -1,5 +1,6 @@
 package org.entity;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
@@ -10,6 +11,8 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 
 @Entity
@@ -20,11 +23,24 @@ public class Produtos extends PanacheEntityBase {
     public Long id;
     public String nome;
     public float medida;
-    
+
+    // NOVO: código de barras (EAN/GTIN) - chave de correspondência entre mercados
+    public String codigoBarras;
+
+    // NOVO: marca do produto - ajuda tanto na busca quanto na correspondência
+    public String marca;
+
+    // NOVO: produto pode ser desativado sem apagar histórico de preços
+    public boolean ativo = true;
+
+    // NOVO: auditoria - útil para saber há quanto tempo um produto não é atualizado
+    public LocalDateTime criadoEm;
+    public LocalDateTime atualizadoEm;
+
     @ManyToOne
     @JoinColumn(name = "categoria_id")
     public Categoria categoria;
-    
+
     @ManyToOne
     @JoinColumn(name = "medidas_id")
     public Medidas medidas;
@@ -34,40 +50,42 @@ public class Produtos extends PanacheEntityBase {
 
     public Produtos() {}
 
-    public Produtos( String nome, Medidas medidas, Categoria categoria) {
+    public Produtos(String nome, Medidas medidas, Categoria categoria) {
         this.nome = nome;
         this.categoria = categoria;
         this.medidas = medidas;
         this.medida = 0;
     }
 
-    public void setNome(String nome) {
-        this.nome = nome;
-    }
-    public void setPrecos(List<Precos> precos) {
-        this.precos = precos;
-    }
-    public String getNome() {
-        return nome;
-    }
-    public List<Precos> getPrecos() {
-        return precos;
-    }
-    public Long getId() {
-        return id;
-    }
-    public Categoria getCategoria() {
-        return categoria;
+    public Produtos(String nome, Medidas medidas, Categoria categoria, String codigoBarras, String marca) {
+        this(nome, medidas, categoria);
+        this.codigoBarras = codigoBarras;
+        this.marca = marca;
     }
 
-    public Medidas getMedidas() {
-        return medidas;
+    @PrePersist
+    public void prePersist() {
+        this.criadoEm = LocalDateTime.now();
+        this.atualizadoEm = LocalDateTime.now();
     }
 
-    public void setCategoria(Categoria categoria) {
-        this.categoria = categoria;
+    @PreUpdate
+    public void preUpdate() {
+        this.atualizadoEm = LocalDateTime.now();
     }
-    public void setMedidas(Medidas medidas) {
-        this.medidas = medidas;
-    }
+
+    // getters/setters existentes mantidos...
+    public void setNome(String nome) { this.nome = nome; }
+    public void setPrecos(List<Precos> precos) { this.precos = precos; }
+    public String getNome() { return nome; }
+    public List<Precos> getPrecos() { return precos; }
+    public Long getId() { return id; }
+    public Categoria getCategoria() { return categoria; }
+    public Medidas getMedidas() { return medidas; }
+    public void setCategoria(Categoria categoria) { this.categoria = categoria; }
+    public void setMedidas(Medidas medidas) { this.medidas = medidas; }
+    public String getCodigoBarras() { return codigoBarras; }
+    public void setCodigoBarras(String codigoBarras) { this.codigoBarras = codigoBarras; }
+    public String getMarca() { return marca; }
+    public void setMarca(String marca) { this.marca = marca; }
 }

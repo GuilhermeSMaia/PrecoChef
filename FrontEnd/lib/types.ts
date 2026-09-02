@@ -1,31 +1,31 @@
-export interface Mercado {
+export interface Market {
   id: string
-  nome: string
+  name: string
 }
 
-export interface Produto {
+export interface Product {
   id: string
-  produtoname: string
-  categoria: string
-  medida: string
+  name: string
+  category: string
+  unit: string
 }
 
-export interface Preco {
+export interface Price {
   id: string
-  produto_id: string
-  mercado: string
-  preco: number
-  ultimaAtualizacao: string
+  productId: string
+  marketId: string
+  price: number
+  lastUpdated: string
 }
 
-export interface ProdutoWithPrices extends Produto {
-  precos: (Preco & { mercado: string })[]
-  menorPreco?: Preco & { mercado: string }
+export interface ProductWithPrices extends Product {
+  prices: Price[]
+  lowestPrice?: Price
 }
 
 export interface ShoppingItem {
-  produto: Produto
-  preco: Preco
-  mercado: Mercado
-  quantidade: number
+  product: Product
+  price: Price
+  market: Market
+  quantity: number
 }

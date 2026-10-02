@@ -19,19 +19,20 @@ public class CreateMercados {
     @POST
     @Transactional
     public Response createMercados(CreateMercadoDTO dto) {
-        if(dto.mercadoId == null) { 
+        if (dto.mercadoId == null) {
             Mercados mercadoExistente = mercadoRepository.findByName(dto.name);
             if (mercadoExistente != null) {
-                return Response.status(Response.Status.CONFLICT).entity("Mercado já cadastrado").build();
+                return Response.status(Response.Status.CONFLICT).entity("Mercado já cadastrado").build();
             }
 
-            Mercados mercado = new Mercados(dto.name);
+            Mercados mercado = new Mercados(dto.name, dto.endereco);
             mercadoRepository.persist(mercado);
             return Response.ok("Mercado criado com sucesso").build();
         }
-             Mercados mercado = mercadoRepository.findById(dto.mercadoId);
-            mercado.setNome(dto.name);
-            mercado.persist();
-            return Response.ok("Mercado atualizado com sucesso").build();
+        Mercados mercado = mercadoRepository.findById(dto.mercadoId);
+        mercado.setNome(dto.name);
+        mercado.setEndereco(dto.endereco);
+        mercado.persist();
+        return Response.ok("Mercado atualizado com sucesso").build();
     }
 }

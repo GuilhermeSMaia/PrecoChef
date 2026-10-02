@@ -42,7 +42,6 @@ export function ShoppingList() {
   const totalItems = getTotalItems()
   const totalValue = getTotalValue()
 
-  // Agrupar itens por mercado
   const itemsByMarket: Record<string, typeof items> = {}
   items.forEach((item) => {
     const marketId = item.mercado.id

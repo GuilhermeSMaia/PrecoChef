@@ -24,16 +24,12 @@ public class Produtos extends PanacheEntityBase {
     public String nome;
     public float medida;
 
-    // NOVO: código de barras (EAN/GTIN) - chave de correspondência entre mercados
     public String codigoBarras;
 
-    // NOVO: marca do produto - ajuda tanto na busca quanto na correspondência
     public String marca;
 
-    // NOVO: produto pode ser desativado sem apagar histórico de preços
     public boolean ativo = true;
 
-    // NOVO: auditoria - útil para saber há quanto tempo um produto não é atualizado
     public LocalDateTime criadoEm;
     public LocalDateTime atualizadoEm;
 
@@ -74,7 +70,6 @@ public class Produtos extends PanacheEntityBase {
         this.atualizadoEm = LocalDateTime.now();
     }
 
-    // getters/setters existentes mantidos...
     public void setNome(String nome) { this.nome = nome; }
     public void setPrecos(List<Precos> precos) { this.precos = precos; }
     public String getNome() { return nome; }

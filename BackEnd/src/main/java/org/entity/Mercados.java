@@ -17,30 +17,25 @@ public class Mercados extends PanacheEntityBase {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     private String nome;
+    private String endereco;
 
     @OneToMany(mappedBy = "mercados")
     private List<Precos> precos;
-    
 
     public Mercados() {}
-    public Mercados( String nome) {
+    public Mercados(String nome) {
         this.nome = nome;
     }
-
-    public Long getId() {
-        return id;
-    }
-    public void setId(Long id) {
-        this.id = id;
-    }
-    public String getNome() {
-        return nome;
-    }
-    public void setNome(String nome) {
+    public Mercados(String nome, String endereco) {
         this.nome = nome;
-    }
-    public List<Precos> getPrecos() {
-        return precos;
+        this.endereco = endereco;
     }
 
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+    public String getNome() { return nome; }
+    public void setNome(String nome) { this.nome = nome; }
+    public String getEndereco() { return endereco; }
+    public void setEndereco(String endereco) { this.endereco = endereco; }
+    public List<Precos> getPrecos() { return precos; }
 }

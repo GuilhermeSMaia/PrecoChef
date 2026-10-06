@@ -8,9 +8,11 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
+import org.jsoup.Connection;
 import org.jsoup.Jsoup;
 import org.scraper.AbstractMercadoScraper;
 import org.scraper.MedidaParser;
@@ -59,6 +61,9 @@ public class IrmaosGoncalvesScraper extends AbstractMercadoScraper {
     @ConfigProperty(name = "scraping.irmaosgoncalves.delay-ms", defaultValue = "500")
     long delayMs;
 
+    @ConfigProperty(name = "scraping.irmaosgoncalves.cookie")
+    Optional<String> cookieManual;
+
     @Override
     public String getNomeMercado() {
         return nomeMercado;
@@ -97,6 +102,7 @@ public class IrmaosGoncalvesScraper extends AbstractMercadoScraper {
             Thread.sleep(delayMs); // evita sobrecarregar/ser bloqueado pelo site
         }
 
+        cookies.clear(); // próxima execução começa com sessão nova
         LOG.infof("[%s] coleta concluída: %d produtos", nomeMercado, produtos.size());
         return new ArrayList<>(produtos.values());
     }
@@ -110,17 +116,78 @@ public class IrmaosGoncalvesScraper extends AbstractMercadoScraper {
         return baseUrl + "/api/produto/pesquisar?categoria=" + categoriaBusca + "&pagina=" + pagina + "&janela=true";
     }
 
-    private String baixar(String url) throws Exception {
-        return Jsoup.connect(url)
+    // ---------------------------------------------------------------- sessão / cookies
+
+    /**
+     * A API só responde para quem já passou pelo site (cookie de sessão emitido na primeira visita).
+     * Por isso fazemos o mesmo que o navegador: abrimos a página inicial, guardamos os cookies e
+     * usamos nas chamadas à API. Se a sessão expirar (401/403 ou resposta que não é JSON),
+     * a sessão é renovada automaticamente e a chamada é refeita uma vez.
+     */
+    private final Map<String, String> cookies = new LinkedHashMap<>();
+
+    private synchronized void iniciarSessao() throws Exception {
+        cookies.clear();
+        Connection.Response home = Jsoup.connect(baseUrl + "/")
                 .userAgent(USER_AGENT)
-                .header("Accept", "application/json")
+                .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
                 .header("Accept-Language", "pt-BR,pt;q=0.9")
+                .followRedirects(true)
+                .ignoreHttpErrors(true)
+                .timeout(30_000)
+                .execute();
+        cookies.putAll(home.cookies());
+        cookies.putAll(cookiesManuais());
+        LOG.infof("[%s] sessão iniciada (HTTP %d) - cookies: %s", nomeMercado, home.statusCode(), cookies.keySet());
+    }
+
+    private String baixar(String url) throws Exception {
+        if (cookies.isEmpty()) iniciarSessao();
+
+        Connection.Response resp = chamarApi(url);
+        if (!respostaValida(resp)) {
+            LOG.infof("[%s] API respondeu HTTP %d - renovando sessão", nomeMercado, resp.statusCode());
+            iniciarSessao();
+            resp = chamarApi(url);
+            if (!respostaValida(resp)) {
+                throw new IllegalStateException("API recusou a requisição mesmo após renovar a sessão (HTTP "
+                        + resp.statusCode() + "). Veja o cookie exigido em scraping.irmaosgoncalves.cookie");
+            }
+        }
+        return resp.body();
+    }
+
+    private Connection.Response chamarApi(String url) throws Exception {
+        Connection.Response resp = Jsoup.connect(url)
+                .userAgent(USER_AGENT)
+                .header("Accept", "application/json, text/plain, */*")
+                .header("Accept-Language", "pt-BR,pt;q=0.9")
+                .header("X-Requested-With", "XMLHttpRequest")
                 .referrer(baseUrl + "/")
+                .cookies(cookies)
                 .ignoreContentType(true)
+                .ignoreHttpErrors(true)
                 .maxBodySize(0)
                 .timeout(30_000)
-                .execute()
-                .body();
+                .execute();
+        cookies.putAll(resp.cookies()); // o servidor pode renovar o cookie a cada resposta
+        return resp;
+    }
+
+    static boolean respostaValida(Connection.Response resp) {
+        return resp.statusCode() == 200 && resp.body().stripLeading().startsWith("{");
+    }
+
+    // cookies extras no formato "nome=valor; nome2=valor2" (só se a visita automática não bastar)
+    private Map<String, String> cookiesManuais() {
+        Map<String, String> extras = new LinkedHashMap<>();
+        cookieManual.ifPresent(texto -> {
+            for (String par : texto.split(";")) {
+                int i = par.indexOf('=');
+                if (i > 0) extras.put(par.substring(0, i).trim(), par.substring(i + 1).trim());
+            }
+        });
+        return extras;
     }
 
     // ---------------------------------------------------------------- leitura do JSON

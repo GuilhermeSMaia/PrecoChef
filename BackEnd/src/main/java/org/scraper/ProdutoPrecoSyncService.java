@@ -18,6 +18,7 @@ import org.repository.PrecosRepository;
 import org.repository.ProdutosRepository;
 import org.scraper.dto.ScrapedProdutoDTO;
 
+import io.quarkus.narayana.jta.runtime.TransactionConfiguration;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -35,6 +36,7 @@ public class ProdutoPrecoSyncService {
     @Inject PrecosRepository precosRepository;
 
     @Transactional
+    @TransactionConfiguration(timeout = 1800) // catálogos grandes (ex.: ~16 mil produtos) passam do timeout padrão de 60s
     public void sincronizar(String nomeMercado, List<ScrapedProdutoDTO> itens) {
         Mercados mercado = mercadoRepository.findByName(nomeMercado);
         if (mercado == null) {
@@ -65,6 +67,7 @@ public class ProdutoPrecoSyncService {
             if (produto == null) {
                 produto = new Produtos(item.nome, medida, categoria);
                 produto.medida = item.quantidade;
+                produto.setMarca(item.marca);
                 produtosRepository.persist(produto);
                 criados++;
             } else if (produto.getCategoria() == null) {

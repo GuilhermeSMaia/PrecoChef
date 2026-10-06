@@ -8,6 +8,7 @@ public class ScrapedProdutoDTO {
     public String medida;      // unidade normalizada: kg, g, l, ml, un
     public float quantidade;   // quantidade da embalagem (ex.: 5 para "Arroz 5kg")
     public BigDecimal preco;
+    public String marca;       // opcional
 
     public ScrapedProdutoDTO(String nome, String categoria, String medida, BigDecimal preco) {
         this(nome, categoria, medida, 0, preco);

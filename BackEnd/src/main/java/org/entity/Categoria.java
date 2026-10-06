@@ -22,6 +22,12 @@ public class Categoria extends PanacheEntityBase {
     @OneToMany(mappedBy = "categoria")
     public List<Produtos> produtos;
 
+    public Categoria() {}
+
+    public Categoria(String categoria) {
+        this.categoria = categoria;
+    }
+
     public String getCategoria() {
         return categoria;
     }

@@ -38,6 +38,7 @@ public class CreateMercados {
             }
 
             Mercados mercado = new Mercados(dto.name);
+            mercado.setUrl(normalizarUrl(dto.url));
             enderecos.forEach(e -> mercado.adicionarEndereco(e.descricao, e.endereco.trim()));
             mercadoRepository.persist(mercado);
             return Response.ok("Mercado criado com sucesso").build();
@@ -48,9 +49,17 @@ public class CreateMercados {
             return Response.status(Response.Status.NOT_FOUND).entity("Mercado não encontrado").build();
         }
         mercado.setNome(dto.name);
+        mercado.setUrl(normalizarUrl(dto.url));
         atualizarEnderecos(mercado, enderecos);
         mercado.persist();
         return Response.ok("Mercado atualizado com sucesso").build();
+    }
+
+    // vazio vira null; sem protocolo ganha https:// (ex.: "www.irmaosgoncalves.com.br")
+    private String normalizarUrl(String url) {
+        if (url == null || url.isBlank()) return null;
+        String u = url.trim();
+        return u.matches("(?i)^https?://.*") ? u : "https://" + u;
     }
 
     // a lista enviada é a lista completa: com id = edita, sem id = adiciona, ausente da lista = remove

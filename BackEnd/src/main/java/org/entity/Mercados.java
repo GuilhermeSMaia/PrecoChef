@@ -19,6 +19,7 @@ public class Mercados extends PanacheEntityBase {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     private String nome;
+    private String url; // site do mercado (opcional)
 
     // um mercado pode ter várias lojas/endereços; salvar o mercado salva/remove os endereços junto
     @OneToMany(mappedBy = "mercado", cascade = CascadeType.ALL, orphanRemoval = true)
@@ -36,6 +37,8 @@ public class Mercados extends PanacheEntityBase {
     public void setId(Long id) { this.id = id; }
     public String getNome() { return nome; }
     public void setNome(String nome) { this.nome = nome; }
+    public String getUrl() { return url; }
+    public void setUrl(String url) { this.url = url; }
     public List<Enderecos> getEnderecos() { return enderecos; }
     public List<Precos> getPrecos() { return precos; }
 

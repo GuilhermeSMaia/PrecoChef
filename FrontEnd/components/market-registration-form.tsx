@@ -10,7 +10,7 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/components/ui/use-toast"
 import { Progress } from "@/components/ui/progress"
-import { Loader2, Store, CheckCircle, MapPin, Phone, Mail, Plus, Trash2 } from "lucide-react"
+import { Loader2, Store, CheckCircle, MapPin, Phone, Mail, Plus, Trash2, Globe } from "lucide-react"
 
 const EnderecoSchema = z.object({
   id: z.number().optional(), // id do endereço já salvo (edição)
@@ -18,10 +18,28 @@ const EnderecoSchema = z.object({
   endereco: z.string().min(5, "Endereço deve ter pelo menos 5 caracteres").max(255, "Endereço muito longo"),
 })
 
+// aceita "www.site.com.br" ou "https://www.site.com.br"
+const normalizarUrl = (url: string) => {
+  const u = url.trim()
+  if (!u) return ""
+  return /^https?:\/\//i.test(u) ? u : `https://${u}`
+}
+
+const urlValida = (url: string) => {
+  if (!url.trim()) return true // campo opcional
+  try {
+    const { hostname } = new URL(normalizarUrl(url))
+    return hostname.includes(".")
+  } catch {
+    return false
+  }
+}
+
 const MarketSchema = z.object({
   mercadoId: z.string().optional(),
   name: z.string().min(3, "Nome deve ter pelo menos 3 caracteres").max(100, "Nome muito longo"),
-  enderecos: z.array(EnderecoSchema),
+  url: z.string().max(255, "URL muito longa").refine(urlValida, "Informe uma URL válida. Ex: www.mercado.com.br"),
+  enderecos: z.array(EnderecoSchema).min(1, "Informe pelo menos um endereço"),
 })
 
 type MarketRegistrationFormProps = {
@@ -41,6 +59,7 @@ export function MarketRegistrationForm({ id }: MarketRegistrationFormProps) {
     defaultValues: {
       mercadoId: id ?? "",
       name: "",
+      url: "",
       enderecos: [{ descricao: "", endereco: "" }],
     },
   })
@@ -59,14 +78,17 @@ export function MarketRegistrationForm({ id }: MarketRegistrationFormProps) {
         }
 
         const data = await response.json()
+        const enderecos = (data.enderecos ?? []).map((e: { id: number; descricao?: string; endereco: string }) => ({
+          id: e.id,
+          descricao: e.descricao ?? "",
+          endereco: e.endereco ?? "",
+        }))
         form.reset({
           mercadoId: id,
           name: data.name || "",
-          enderecos: (data.enderecos ?? []).map((e: { id: number; descricao?: string; endereco: string }) => ({
-            id: e.id,
-            descricao: e.descricao ?? "",
-            endereco: e.endereco ?? "",
-          })),
+          url: data.url || "",
+          // mercado sem endereço ainda: já abre com um campo vazio para preencher
+          enderecos: enderecos.length > 0 ? enderecos : [{ descricao: "", endereco: "" }],
         })
       } catch (error) {
         toast({
@@ -108,13 +130,14 @@ export function MarketRegistrationForm({ id }: MarketRegistrationFormProps) {
       body: JSON.stringify({
         ...data,
         mercadoId: data.mercadoId ? Number(data.mercadoId) : null,
+        url: normalizarUrl(data.url) || null,
       }),
     })
 
     clearInterval(progressInterval)
 
     if (!response.ok) {
-      throw new Error("Erro ao cadastrar produto")
+      throw new Error("Erro ao cadastrar mercado")
     }
 
     setSubmitProgress(100)
@@ -122,7 +145,7 @@ export function MarketRegistrationForm({ id }: MarketRegistrationFormProps) {
     setTimeout(() => {
       setIsSuccess(true)
       toast({
-        title: "Produto cadastrado com sucesso!",
+        title: "Mercado salvo com sucesso!",
         description: `${data.name} foi adicionado à plataforma.`,
       })
 
@@ -134,7 +157,7 @@ export function MarketRegistrationForm({ id }: MarketRegistrationFormProps) {
     }, 500)
   } catch (error) {
     toast({
-      title: "Erro ao cadastrar produto",
+      title: "Erro ao salvar mercado",
       description: "Tente novamente em alguns instantes.",
       variant: "destructive",
     })
@@ -184,6 +207,23 @@ export function MarketRegistrationForm({ id }: MarketRegistrationFormProps) {
                   </FormItem>
                 )}
               />
+              <FormField
+                control={form.control}
+                name="url"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>
+                      <Globe className="inline h-3.5 w-3.5 mr-1 align-[-2px]" />
+                      Site do Mercado
+                    </FormLabel>
+                    <FormControl>
+                      <Input placeholder="Ex: www.irmaosgoncalves.com.br" inputMode="url" {...field} className="theme-transition" />
+                    </FormControl>
+                    <FormDescription>Endereço do site ou loja online (opcional)</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </div>
 
             <div className="space-y-4">
@@ -191,9 +231,11 @@ export function MarketRegistrationForm({ id }: MarketRegistrationFormProps) {
                 <div>
                   <h4 className="font-medium flex items-center gap-2">
                     <MapPin className="h-4 w-4" />
-                    Endereços
+                    Endereços *
                   </h4>
-                  <p className="text-sm text-muted-foreground">Adicione um endereço para cada loja/unidade do mercado</p>
+                  <p className="text-sm text-muted-foreground">
+                    Informe o endereço do mercado. Se ele tiver mais de uma loja, adicione os outros endereços.
+                  </p>
                 </div>
                 <Button
                   type="button"
@@ -240,12 +282,17 @@ export function MarketRegistrationForm({ id }: MarketRegistrationFormProps) {
                     size="icon"
                     className="md:mt-8"
                     onClick={() => remove(index)}
+                    disabled={fields.length === 1} // pelo menos um endereço é obrigatório
                     aria-label="Remover endereço"
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
               ))}
+
+              {form.formState.errors.enderecos?.root?.message && (
+                <p className="text-sm font-medium text-destructive">{form.formState.errors.enderecos.root.message}</p>
+              )}
             </div>
 
             {isSubmitting && (

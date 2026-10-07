@@ -1,13 +1,17 @@
 package org.controlers.DTO;
 
+import java.util.List;
+
+import org.entity.Mercados;
+
 public class GetAllMercadosDTO {
     public Long id;
     public String name;
-    public String endereco;
+    public List<EnderecoDTO> enderecos;
 
-    public GetAllMercadosDTO(Long id, String name, String endereco) {
-        this.id = id;
-        this.name = name;
-        this.endereco = endereco;
+    public GetAllMercadosDTO(Mercados mercado) {
+        this.id = mercado.getId();
+        this.name = mercado.getNome();
+        this.enderecos = mercado.getEnderecos().stream().map(EnderecoDTO::new).toList();
     }
 }

@@ -23,9 +23,7 @@ public class GetMercados {
         try { 
             List<Mercados> mercados = mercadoRepository.listAll();
             List<GetAllMercadosDTO> dto = mercados.stream()
-                .map(m -> new GetAllMercadosDTO(m.getId(), 
-                        m.getNome(), 
-                        m.getEndereco()))
+                .map(GetAllMercadosDTO::new)
                 .collect(Collectors.toList());
             return Response.ok(dto).build();
         } catch (Exception e) {

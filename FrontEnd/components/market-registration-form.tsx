@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useForm } from "react-hook-form"
+import { useFieldArray, useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import { Button } from "@/components/ui/button"
@@ -10,11 +10,18 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/components/ui/use-toast"
 import { Progress } from "@/components/ui/progress"
-import { Loader2, Store, CheckCircle, MapPin, Phone, Mail } from "lucide-react"
+import { Loader2, Store, CheckCircle, MapPin, Phone, Mail, Plus, Trash2 } from "lucide-react"
+
+const EnderecoSchema = z.object({
+  id: z.number().optional(), // id do endereço já salvo (edição)
+  descricao: z.string().max(100, "Descrição muito longa").optional(),
+  endereco: z.string().min(5, "Endereço deve ter pelo menos 5 caracteres").max(255, "Endereço muito longo"),
+})
 
 const MarketSchema = z.object({
   mercadoId: z.string().optional(),
   name: z.string().min(3, "Nome deve ter pelo menos 3 caracteres").max(100, "Nome muito longo"),
+  enderecos: z.array(EnderecoSchema),
 })
 
 type MarketRegistrationFormProps = {
@@ -34,7 +41,13 @@ export function MarketRegistrationForm({ id }: MarketRegistrationFormProps) {
     defaultValues: {
       mercadoId: id ?? "",
       name: "",
+      enderecos: [{ descricao: "", endereco: "" }],
     },
+  })
+
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: "enderecos",
   })
 
    useEffect(() => {
@@ -49,6 +62,11 @@ export function MarketRegistrationForm({ id }: MarketRegistrationFormProps) {
         form.reset({
           mercadoId: id,
           name: data.name || "",
+          enderecos: (data.enderecos ?? []).map((e: { id: number; descricao?: string; endereco: string }) => ({
+            id: e.id,
+            descricao: e.descricao ?? "",
+            endereco: e.endereco ?? "",
+          })),
         })
       } catch (error) {
         toast({
@@ -87,7 +105,10 @@ export function MarketRegistrationForm({ id }: MarketRegistrationFormProps) {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(data),
+      body: JSON.stringify({
+        ...data,
+        mercadoId: data.mercadoId ? Number(data.mercadoId) : null,
+      }),
     })
 
     clearInterval(progressInterval)
@@ -164,6 +185,69 @@ export function MarketRegistrationForm({ id }: MarketRegistrationFormProps) {
                 )}
               />
             </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="font-medium flex items-center gap-2">
+                    <MapPin className="h-4 w-4" />
+                    Endereços
+                  </h4>
+                  <p className="text-sm text-muted-foreground">Adicione um endereço para cada loja/unidade do mercado</p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => append({ descricao: "", endereco: "" })}
+                >
+                  <Plus className="mr-1 h-4 w-4" />
+                  Adicionar endereço
+                </Button>
+              </div>
+
+              {fields.map((item, index) => (
+                <div key={item.id} className="grid grid-cols-1 md:grid-cols-[1fr_2fr_auto] gap-4 items-start">
+                  <FormField
+                    control={form.control}
+                    name={`enderecos.${index}.descricao`}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Unidade</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Ex: Loja Centro" {...field} className="theme-transition" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name={`enderecos.${index}.endereco`}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Endereço *</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Ex: Av. Jatuarana, 1000 - Porto Velho" {...field} className="theme-transition" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="md:mt-8"
+                    onClick={() => remove(index)}
+                    aria-label="Remover endereço"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+
             {isSubmitting && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">

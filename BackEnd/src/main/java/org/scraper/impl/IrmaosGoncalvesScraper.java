@@ -79,6 +79,7 @@ public class IrmaosGoncalvesScraper extends AbstractMercadoScraper {
         Map<String, ScrapedProdutoDTO> produtos = new LinkedHashMap<>(); // chave = id do produto no site
         int totalPaginas = maxPaginas;
         int falhasSeguidas = 0;
+        String ultimoErro = null;
 
         // começa em 0 caso a API seja indexada a partir de zero; se não for, os itens repetidos são descartados pelo id
         for (int pagina = 0; pagina <= Math.min(totalPaginas, maxPaginas); pagina++) {
@@ -89,11 +90,19 @@ public class IrmaosGoncalvesScraper extends AbstractMercadoScraper {
                 if (resposta.paginas() > 0) totalPaginas = resposta.paginas();
                 resposta.produtos().forEach((id, p) -> produtos.putIfAbsent(id, p));
 
+                if (resposta.produtos().isEmpty() && pagina >= 1) {
+                    // página válida sem produtos = fim da listagem (ou categoria inexistente)
+                    if (produtos.isEmpty()) ultimoErro = "a API respondeu sem produtos (verifique scraping.irmaosgoncalves.categoria) - "
+                            + urlPagina(pagina);
+                    break;
+                }
+
                 if (pagina % 50 == 0) {
                     LOG.infof("[%s] página %d/%d - %d produtos até agora", nomeMercado, pagina, totalPaginas, produtos.size());
                 }
             } catch (Exception e) {
-                LOG.errorf(e, "[%s] falha ao coletar página %d", nomeMercado, pagina);
+                ultimoErro = e.getMessage();
+                LOG.errorf("[%s] falha ao coletar página %d: %s", nomeMercado, pagina, e.getMessage());
                 if (++falhasSeguidas >= MAX_FALHAS_SEGUIDAS) {
                     LOG.errorf("[%s] %d falhas seguidas - interrompendo coleta", nomeMercado, falhasSeguidas);
                     break;
@@ -103,6 +112,10 @@ public class IrmaosGoncalvesScraper extends AbstractMercadoScraper {
         }
 
         cookies.clear(); // próxima execução começa com sessão nova
+        if (produtos.isEmpty()) {
+            // devolve o motivo em vez de "0 produtos", para facilitar o diagnóstico
+            throw new IllegalStateException("nenhum produto coletado: " + ultimoErro);
+        }
         LOG.infof("[%s] coleta concluída: %d produtos", nomeMercado, produtos.size());
         return new ArrayList<>(produtos.values());
     }
@@ -146,12 +159,13 @@ public class IrmaosGoncalvesScraper extends AbstractMercadoScraper {
 
         Connection.Response resp = chamarApi(url);
         if (!respostaValida(resp)) {
-            LOG.infof("[%s] API respondeu HTTP %d - renovando sessão", nomeMercado, resp.statusCode());
+            LOG.infof("[%s] API respondeu HTTP %d (%s) - renovando sessão", nomeMercado, resp.statusCode(), inicio(resp.body()));
             iniciarSessao();
             resp = chamarApi(url);
             if (!respostaValida(resp)) {
                 throw new IllegalStateException("API recusou a requisição mesmo após renovar a sessão (HTTP "
-                        + resp.statusCode() + "). Veja o cookie exigido em scraping.irmaosgoncalves.cookie");
+                        + resp.statusCode() + ", cookies enviados: " + cookies.keySet() + ") em " + url
+                        + " - início da resposta: " + inicio(resp.body()));
             }
         }
         return resp.body();
@@ -172,6 +186,11 @@ public class IrmaosGoncalvesScraper extends AbstractMercadoScraper {
                 .execute();
         cookies.putAll(resp.cookies()); // o servidor pode renovar o cookie a cada resposta
         return resp;
+    }
+
+    private static String inicio(String body) {
+        String t = body == null ? "" : body.replaceAll("\\s+", " ").trim();
+        return t.length() > 300 ? t.substring(0, 300) + "..." : t;
     }
 
     static boolean respostaValida(Connection.Response resp) {

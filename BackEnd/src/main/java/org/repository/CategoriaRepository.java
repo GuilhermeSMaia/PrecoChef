@@ -1,5 +1,8 @@
 package org.repository;
 
+import java.util.List;
+
+import org.controlers.DTO.CategoriaDTO;
 import org.entity.Categoria;
 
 import io.quarkus.hibernate.orm.panache.PanacheRepositoryBase;
@@ -22,6 +25,11 @@ public class CategoriaRepository implements PanacheRepositoryBase<Categoria, Lon
         return nova;
     }
 
-
-    
+    public List<CategoriaDTO> listarComQuantidade() {
+        return getEntityManager().createQuery(
+                "select new org.controlers.DTO.CategoriaDTO(c.id, c.categoria, count(p.id)) "
+                        + "from Categoria c left join c.produtos p "
+                        + "group by c.id, c.categoria order by c.categoria",
+                CategoriaDTO.class).getResultList();
+    }
 }

@@ -29,3 +29,18 @@ export interface ShoppingItem {
   mercado: Mercado
   quantidade: number
 }
+
+export interface Categoria {
+  id: number
+  nome: string
+  quantidadeProdutos: number
+}
+
+// resposta de GET /produtos/paginado
+export interface PaginaProdutos {
+  itens: ProdutoWithPrices[]
+  pagina: number // começa em 0
+  tamanho: number
+  total: number
+  totalPaginas: number
+}

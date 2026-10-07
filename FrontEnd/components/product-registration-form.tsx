@@ -3,7 +3,7 @@
 //valores que precisa passar{ String nome, string categoria, string medida }
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
@@ -17,6 +17,7 @@ import { useToast } from "@/components/ui/use-toast"
 import { ImageUpload } from "@/components/image-upload"
 import { Progress } from "@/components/ui/progress"
 import { Loader2, Package, CheckCircle } from "lucide-react"
+import { Categoria } from "@/lib/types"
 
 const productSchema = z.object({
   nome: z.string().min(2, "Nome deve ter pelo menos 2 caracteres").max(100, "Nome muito longo"),
@@ -26,26 +27,22 @@ const productSchema = z.object({
 
 type ProductFormData = z.infer<typeof productSchema>
 
-const categorias = [
-  "Alimentos",
-  "Laticínios",
-  "Bebidas",
-  "Limpeza",
-  "Higiene",
-  "Padaria",
-  "Açougue",
-  "Hortifruti",
-  "Congelados",
-  "Outros",
-]
-
 const medidas = ["kg", "g", "L", "ml", "unidade", "pacote", "caixa", "lata", "garrafa"]
 
 export function ProductRegistrationForm() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitProgress, setSubmitProgress] = useState(0)
   const [isSuccess, setIsSuccess] = useState(false)
+  const [categorias, setCategorias] = useState<string[]>([])
   const { toast } = useToast()
+
+  // mesmas categorias usadas pelos produtos do webscraping (o backend só aceita categoria já cadastrada)
+  useEffect(() => {
+    fetch("http://localhost:8080/categorias")
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data: Categoria[]) => setCategorias(data.map((c) => c.nome)))
+      .catch((error) => console.error("Erro ao buscar categorias:", error))
+  }, [])
 
   const form = useForm<ProductFormData>({
     resolver: zodResolver(productSchema),

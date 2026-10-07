@@ -7,13 +7,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent } from "@/components/ui/card"
 import { Search, X, Filter } from "lucide-react"
 
-const categories = ["Alimentos", "Laticínios", "Bebidas", "Limpeza", "Higiene"]
+// valor usado no Select para "sem filtro" (o Radix não aceita item com value vazio)
+const TODAS = "__todas__"
 
 interface ProductFiltersProps {
+  categories: string[] // vindas de GET /categorias
   onFiltersChange: (filters: { search: string; category: string; sortBy: string }) => void
 }
 
-export function ProductFilters({ onFiltersChange }: ProductFiltersProps) {
+export function ProductFilters({ categories, onFiltersChange }: ProductFiltersProps) {
   const [search, setSearch] = useState("")
   const [category, setCategory] = useState("")
   const [sort, setSort] = useState("")
@@ -70,11 +72,12 @@ export function ProductFilters({ onFiltersChange }: ProductFiltersProps) {
             }`}
           >
             <div className="flex flex-col sm:flex-row gap-4 flex-1">
-              <Select value={category} onValueChange={setCategory}>
+              <Select value={category || TODAS} onValueChange={(v) => setCategory(v === TODAS ? "" : v)}>
                 <SelectTrigger className="w-full sm:w-[200px] h-12 border-0 bg-muted/50 hover:bg-muted transition-colors">
                   <SelectValue placeholder="Todas as categorias" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value={TODAS}>Todas as categorias</SelectItem>
                   {categories.map((cat) => (
                     <SelectItem key={cat} value={cat}>
                       {cat}

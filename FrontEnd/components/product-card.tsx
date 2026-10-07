@@ -84,7 +84,7 @@ export function ProductCard({ produto }: ProdutoCardProps) {
             <div className="space-y-1">
               {produto.precos.slice(1, 3).map((precoInfo) => (
                 <div
-                  key={precoInfo.id}
+                  key={precoInfo.mercado}
                   className="flex justify-between items-center text-sm p-2 rounded-lg bg-muted/30 theme-transition"
                 >
                   <span className="text-muted-foreground">{precoInfo.mercado}</span>

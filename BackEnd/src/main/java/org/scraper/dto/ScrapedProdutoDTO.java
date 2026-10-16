@@ -9,6 +9,7 @@ public class ScrapedProdutoDTO {
     public float quantidade;   // quantidade da embalagem (ex.: 5 para "Arroz 5kg")
     public BigDecimal preco;
     public String marca;       // opcional
+    public String codigoBarras; // opcional (EAN); quando existe, identifica o mesmo produto entre mercados
 
     public ScrapedProdutoDTO(String nome, String categoria, String medida, BigDecimal preco) {
         this(nome, categoria, medida, 0, preco);

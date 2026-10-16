@@ -19,7 +19,7 @@ class NovaEraScraperTest {
             {"products":[
               {"productId":"1395508","productName":"Açúcar Doce Dia Cristal Pacote 1kg","brand":"Doce Dia",
                "categories":["/Alimentos/Arroz, Feijão, Açúcar e Grãos/","/Alimentos/"],
-               "items":[{"itemId":"101","measurementUnit":"un","unitMultiplier":1,
+               "items":[{"itemId":"101","ean":"7896004003316","measurementUnit":"un","unitMultiplier":1,
                  "sellers":[{"sellerId":"1","commertialOffer":{"Price":2.79,"AvailableQuantity":99999}}]}]},
               {"productId":"1407738","productName":"Limao Taiti kg","brand":"",
                "categories":["/Alimentos/Hortifruti/","/Alimentos/"],
@@ -54,9 +54,11 @@ class NovaEraScraperTest {
         assertEquals("Alimentos", acucar.categoria()); // departamento vira a categoria
         assertEquals("Doce Dia", acucar.marca());
         assertFalse(acucar.porKg());
+        assertEquals("7896004003316", acucar.paraDto(new BigDecimal("3.29")).codigoBarras);
 
         NovaEraScraper.ProdutoBusca limao = r.produtos().get(1);
         assertNull(limao.marca());
+        assertNull(limao.ean()); // código de barras é opcional
         assertTrue(limao.porKg());
     }
 

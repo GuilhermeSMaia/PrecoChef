@@ -173,7 +173,8 @@ public class AtacadaoScraper extends AbstractMercadoScraper {
         JsonArray items = produto.getJsonArray("items");
         if (nome.isEmpty() || items == null || items.isEmpty()) return null;
 
-        JsonArray sellers = items.getJsonObject(0).getJsonArray("sellers");
+        JsonObject item = items.getJsonObject(0);
+        JsonArray sellers = item.getJsonArray("sellers");
         if (sellers == null || sellers.isEmpty()) return null;
 
         JsonObject oferta = sellers.getJsonObject(0).getJsonObject("commertialOffer");
@@ -187,6 +188,7 @@ public class AtacadaoScraper extends AbstractMercadoScraper {
         ScrapedProdutoDTO dto = new ScrapedProdutoDTO(nome, departamento(produto), medida.unidade(), medida.quantidade(), preco);
         String marca = produto.getString("brand", "").trim();
         dto.marca = marca.isEmpty() ? null : marca;
+        dto.codigoBarras = item.getString("ean", null);
         return dto;
     }
 

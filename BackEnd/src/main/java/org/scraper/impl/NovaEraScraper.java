@@ -275,12 +275,13 @@ public class NovaEraScraper extends AbstractMercadoScraper {
 
     record Categoria(List<String> caminho, List<Categoria> filhas) {}
 
-    record ProdutoBusca(String productId, String itemId, String nome, String categoria, String marca, boolean porKg) {
+    record ProdutoBusca(String productId, String itemId, String nome, String categoria, String marca, String ean, boolean porKg) {
         ScrapedProdutoDTO paraDto(BigDecimal preco) {
             // vendido por kg: o preço consultado é o do quilo
             MedidaParser.Medida medida = porKg ? new MedidaParser.Medida(1, "kg") : MedidaParser.parse(nome);
             ScrapedProdutoDTO dto = new ScrapedProdutoDTO(nome, categoria, medida.unidade(), medida.quantidade(), preco);
             dto.marca = marca;
+            dto.codigoBarras = ean;
             return dto;
         }
     }
@@ -350,7 +351,7 @@ public class NovaEraScraper extends AbstractMercadoScraper {
             String marca = produto.getString("brand", "").trim();
             boolean porKg = item.getString("measurementUnit", "").equalsIgnoreCase("kg");
             produtos.add(new ProdutoBusca(produto.getString("productId", itemId), itemId, nome,
-                    departamento(produto), marca.isEmpty() ? null : marca, porKg));
+                    departamento(produto), marca.isEmpty() ? null : marca, item.getString("ean", null), porKg));
         }
 
         int total = body.get("recordsFiltered") instanceof JsonNumber n ? n.intValue() : lista.size();

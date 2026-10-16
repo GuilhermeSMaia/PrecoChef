@@ -54,8 +54,11 @@ public class ProdutoPrecoSyncService {
         // produtos e preços carregados de uma vez só: consultar o banco item a item dentro da
         // transação força um flush a cada consulta e deixa a sincronização quadrática (muito lenta)
         Map<String, Produtos> produtos = new HashMap<>();
+        Map<String, Produtos> porCodigoBarras = new HashMap<>();
         for (Produtos p : produtosRepository.listAllComMedida()) {
             produtos.putIfAbsent(chave(p.nome, p.getMedidas().id), p);
+            String codigo = normalizarCodigoBarras(p.getCodigoBarras());
+            if (codigo != null) porCodigoBarras.putIfAbsent(codigo, p);
         }
         Map<Long, Precos> precos = new HashMap<>();
         for (Precos p : precosRepository.listByMercado(mercado)) {
@@ -75,17 +78,35 @@ public class ProdutoPrecoSyncService {
             Categoria categoria = categorias.computeIfAbsent(nomeCategoria.toLowerCase(), k -> categoriaRepository.findOrCreate(nomeCategoria));
             Medidas medida = medidas.computeIfAbsent(nomeMedida.toLowerCase(), k -> medidasRepository.findOrCreate(nomeMedida));
 
-            Produtos produto = produtos.get(chave(item.nome, medida.id));
+            // o código de barras (opcional) identifica o mesmo produto em mercados que o nomeiam de
+            // formas diferentes; sem ele, vale nome + medida
+            String codigo = normalizarCodigoBarras(item.codigoBarras);
+            Produtos produto = codigo != null ? porCodigoBarras.get(codigo) : null;
+            if (produto == null) {
+                produto = produtos.get(chave(item.nome, medida.id));
+                String codigoDoBanco = produto == null ? null : normalizarCodigoBarras(produto.getCodigoBarras());
+                if (codigoDoBanco != null && codigo != null && !codigoDoBanco.equals(codigo)) {
+                    produto = null; // mesmo nome, mas código de barras diferente: é outro produto
+                }
+            }
+
             if (produto == null) {
                 produto = new Produtos(item.nome, medida, categoria);
                 produto.medida = item.quantidade;
                 produto.setMarca(item.marca);
+                produto.setCodigoBarras(codigo);
                 produtosRepository.persist(produto);
-                produtos.put(chave(item.nome, medida.id), produto);
+                produtos.putIfAbsent(chave(item.nome, medida.id), produto);
                 criados++;
-            } else if (produto.getCategoria() == null) {
-                produto.setCategoria(categoria); // completa produtos antigos que estavam sem categoria
+            } else {
+                if (produto.getCategoria() == null) {
+                    produto.setCategoria(categoria); // completa produtos antigos que estavam sem categoria
+                }
+                if (codigo != null && produto.getCodigoBarras() == null) {
+                    produto.setCodigoBarras(codigo); // completa produtos cadastrados antes sem código de barras
+                }
             }
+            if (codigo != null) porCodigoBarras.putIfAbsent(codigo, produto);
 
             // entidades carregadas na transação são gravadas no commit; só o que mudou gera UPDATE
             Precos precoExistente = precos.get(produto.id);
@@ -107,5 +128,15 @@ public class ProdutoPrecoSyncService {
     // o MySQL compara texto sem diferenciar maiúsculas; o cache precisa fazer o mesmo para não duplicar produtos
     private static String chave(String nome, Long medidaId) {
         return nome.trim().toLowerCase(Locale.ROOT) + "|" + medidaId;
+    }
+
+    /**
+     * Só dígitos e sem zeros à esquerda ("07891000462300" e "7891000462300" são o mesmo GTIN).
+     * Devolve null para códigos ausentes ou curtos demais para serem um EAN/GTIN válido.
+     */
+    static String normalizarCodigoBarras(String codigo) {
+        if (codigo == null) return null;
+        String digitos = codigo.replaceAll("\\D", "").replaceFirst("^0+", "");
+        return digitos.length() >= 8 ? digitos : null;
     }
 }

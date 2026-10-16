@@ -15,7 +15,7 @@ class AtacadaoScraperTest {
             {"products":[
               {"productId":"101","productName":"Arroz Branco Tio João Tipo 1 5kg","brand":"Tio João",
                "categories":["/Mercearia/Arroz e Feijão/Arroz/","/Mercearia/Arroz e Feijão/","/Mercearia/"],
-               "items":[{"itemId":"1","measurementUnit":"un",
+               "items":[{"itemId":"1","ean":"7893500020110","measurementUnit":"un",
                  "sellers":[{"sellerId":"1","commertialOffer":{"Price":27.9,"ListPrice":27.9,"AvailableQuantity":10000}}]}]},
               {"productId":"102","productName":"Patinho Bovino Resfriado Kg","brand":"",
                "categories":["/Carnes, Aves e Peixes/Bovinos/","/Carnes, Aves e Peixes/"],
@@ -43,6 +43,7 @@ class AtacadaoScraperTest {
         assertEquals(new BigDecimal("27.90"), arroz.preco);
         assertEquals("kg", arroz.medida);
         assertEquals(5f, arroz.quantidade);
+        assertEquals("7893500020110", arroz.codigoBarras);
     }
 
     @Test
@@ -54,6 +55,7 @@ class AtacadaoScraperTest {
         assertEquals(1f, patinho.quantidade);
         assertEquals(new BigDecimal("39.99"), patinho.preco);
         assertNull(patinho.marca);
+        assertNull(patinho.codigoBarras); // código de barras é opcional
     }
 
     @Test

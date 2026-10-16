@@ -15,6 +15,11 @@ public class PrecosRepository implements PanacheRepositoryBase<Precos, Long> {
     return find("mercados = ?1 and produtos = ?2", mercados, produtos).firstResult();
 }
 
+    // todos os preços de um mercado (usado pelo webscraping para atualizar sem consultar item a item)
+    public List<Precos> listByMercado(Mercados mercados) {
+        return find("select pr from Precos pr join fetch pr.produtos where pr.mercados = ?1", mercados).list();
+    }
+
     // preços de vários produtos de uma vez (evita uma consulta por produto), do menor para o maior
     public List<Precos> listByProdutos(List<Long> produtosIds) {
         if (produtosIds.isEmpty()) return List.of();

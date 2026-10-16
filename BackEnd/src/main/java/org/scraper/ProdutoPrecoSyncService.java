@@ -3,6 +3,7 @@ package org.scraper;
 import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import org.entity.Categoria;
@@ -50,6 +51,17 @@ public class ProdutoPrecoSyncService {
         Map<String, Categoria> categorias = new HashMap<>();
         Map<String, Medidas> medidas = new HashMap<>();
 
+        // produtos e preços carregados de uma vez só: consultar o banco item a item dentro da
+        // transação força um flush a cada consulta e deixa a sincronização quadrática (muito lenta)
+        Map<String, Produtos> produtos = new HashMap<>();
+        for (Produtos p : produtosRepository.listAllComMedida()) {
+            produtos.putIfAbsent(chave(p.nome, p.getMedidas().id), p);
+        }
+        Map<Long, Precos> precos = new HashMap<>();
+        for (Precos p : precosRepository.listByMercado(mercado)) {
+            precos.putIfAbsent(p.getProdutos().id, p);
+        }
+
         for (ScrapedProdutoDTO item : itens) {
             if (item.nome == null || item.nome.isBlank() || item.preco == null) {
                 ignorados++;
@@ -63,29 +75,37 @@ public class ProdutoPrecoSyncService {
             Categoria categoria = categorias.computeIfAbsent(nomeCategoria.toLowerCase(), k -> categoriaRepository.findOrCreate(nomeCategoria));
             Medidas medida = medidas.computeIfAbsent(nomeMedida.toLowerCase(), k -> medidasRepository.findOrCreate(nomeMedida));
 
-            Produtos produto = produtosRepository.findByNomeAndMedida(item.nome, medida.id);
+            Produtos produto = produtos.get(chave(item.nome, medida.id));
             if (produto == null) {
                 produto = new Produtos(item.nome, medida, categoria);
                 produto.medida = item.quantidade;
                 produto.setMarca(item.marca);
                 produtosRepository.persist(produto);
+                produtos.put(chave(item.nome, medida.id), produto);
                 criados++;
             } else if (produto.getCategoria() == null) {
                 produto.setCategoria(categoria); // completa produtos antigos que estavam sem categoria
             }
 
-            Precos precoExistente = precosRepository.findByMercadosAndProdutos(mercado, produto);
+            // entidades carregadas na transação são gravadas no commit; só o que mudou gera UPDATE
+            Precos precoExistente = precos.get(produto.id);
             if (precoExistente != null) {
                 precoExistente.setPreco(item.preco);
                 precoExistente.setUltimaAtualizacao(LocalDate.now());
-                precoExistente.persist();
             } else {
-                precosRepository.persist(new Precos(item.preco, mercado, produto));
+                Precos novo = new Precos(item.preco, mercado, produto);
+                precosRepository.persist(novo);
+                precos.put(produto.id, novo);
             }
             atualizados++;
         }
 
         LOG.infof("[%s] sincronização concluída: %d produtos criados, %d preços atualizados, %d ignorados",
                 nomeMercado, criados, atualizados, ignorados);
+    }
+
+    // o MySQL compara texto sem diferenciar maiúsculas; o cache precisa fazer o mesmo para não duplicar produtos
+    private static String chave(String nome, Long medidaId) {
+        return nome.trim().toLowerCase(Locale.ROOT) + "|" + medidaId;
     }
 }

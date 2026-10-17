@@ -6,7 +6,7 @@
 
 import { useState, useEffect } from "react"
 import type { ColumnDef } from "@tanstack/react-table"
-import { MoreHorizontal, MapPin, Phone, Mail, Calendar, Edit, Trash2, Eye } from "lucide-react"
+import { MoreHorizontal, MapPin, Phone, Mail, Calendar, Edit, Trash2, Eye, ExternalLink, Store } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
@@ -31,23 +31,25 @@ import {
 } from "@/components/ui/dialog"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import Link from "next/link"
+import { MarketDetailsDialog } from "@/components/market-details-dialog"
+import type { MercadoComEnderecos } from "@/lib/types"
 
-interface Market {
-  id: string
-  name: string
-  address: string
-  phone: string
-  email?: string
-  description?: string
-  logo?: string
-  createdAt: string
-  status: "active" | "inactive" | "pending"
+type Market = MercadoComEnderecos
+
+// "https://www.atacadao.com.br/" -> "atacadao.com.br"
+const dominio = (url: string) => {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "")
+  } catch {
+    return url
+  }
 }
 
 
 export function MarketsDataTable() {
   const [markets, setMarkets] = useState<Market[]>([])
   const [loading, setLoading] = useState(true)
+  const [mercadoDetalhes, setMercadoDetalhes] = useState<Market | null>(null)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -73,7 +75,6 @@ export function MarketsDataTable() {
   }
   fetchMarkets()
 }, [])
-console.log(markets)
 
   const handleEdit = (market: Market) => {
     toast({
@@ -96,15 +97,54 @@ console.log(markets)
             </div>
             <div className="min-w-0">
               <p className="font-medium truncate">{market.name}</p>
-              <p className="text-sm text-muted-foreground truncate">{market.phone}</p>
+              <p className="text-sm text-muted-foreground truncate">
+                {market.enderecos.length} {market.enderecos.length === 1 ? "loja" : "lojas"}
+              </p>
             </div>
           </div>
         )
       },
     },
-    
-    
- 
+    {
+      accessorKey: "url",
+      header: "Site",
+      cell: ({ row }) => {
+        const url = row.original.url
+        if (!url) return <span className="text-sm text-muted-foreground">—</span>
+        return (
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+          >
+            {dominio(url)}
+            <ExternalLink className="h-3 w-3" />
+          </a>
+        )
+      },
+    },
+    {
+      id: "enderecos",
+      header: "Endereços",
+      cell: ({ row }) => {
+        const enderecos = row.original.enderecos
+        if (enderecos.length === 0) return <span className="text-sm text-muted-foreground">—</span>
+        return (
+          <ul className="space-y-0.5 text-sm">
+            {enderecos.map((e) => (
+              <li key={e.id} className="flex items-start gap-1">
+                <Store className="h-3 w-3 mt-1 flex-shrink-0 text-muted-foreground" />
+                <span>
+                  {e.descricao && <span className="font-medium">{e.descricao}: </span>}
+                  <span className="text-muted-foreground">{e.endereco}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        )
+      },
+    },
     {
       id: "actions",
       enableHiding: false,
@@ -113,6 +153,16 @@ console.log(markets)
 
         return (
           <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-8 w-8 hover-lift theme-transition btn-orange-outline"
+              title="Ver detalhes"
+              onClick={() => setMercadoDetalhes(market)}
+            >
+              <span className="sr-only">Ver detalhes de {market.name}</span>
+              <Eye className="h-4 w-4" />
+            </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="h-8 w-8 p-0">
@@ -153,6 +203,7 @@ console.log(markets)
   }
 
   return (
+    <>
     <DataTable
       columns={columns}
       data={markets}
@@ -161,5 +212,7 @@ console.log(markets)
       title="Mercados Cadastrados"
       description="Gerencie todos os mercados registrados na plataforma"
     />
+    <MarketDetailsDialog market={mercadoDetalhes} onClose={() => setMercadoDetalhes(null)} />
+    </>
   )
 }

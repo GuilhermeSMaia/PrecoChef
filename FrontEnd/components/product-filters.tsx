@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent } from "@/components/ui/card"
 import { Search, X, Filter } from "lucide-react"
-
-const categories = ["Alimentos", "Laticínios", "Bebidas", "Limpeza", "Higiene"]
+import { useCategorias } from "@/hooks/use-categorias"
+import { CategoryCombobox } from "@/components/category-combobox"
 
 interface ProductFiltersProps {
   onFiltersChange: (filters: { search: string; category: string; sortBy: string }) => void
@@ -18,6 +18,7 @@ export function ProductFilters({ onFiltersChange }: ProductFiltersProps) {
   const [category, setCategory] = useState("")
   const [sort, setSort] = useState("")
   const [isFiltersOpen, setIsFiltersOpen] = useState(false)
+  const { lista: categorias, carregando: carregandoCategorias } = useCategorias()
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
@@ -70,18 +71,13 @@ export function ProductFilters({ onFiltersChange }: ProductFiltersProps) {
             }`}
           >
             <div className="flex flex-col sm:flex-row gap-4 flex-1">
-              <Select value={category} onValueChange={setCategory}>
-                <SelectTrigger className="w-full sm:w-[200px] h-12 border-0 bg-muted/50 hover:bg-muted transition-colors">
-                  <SelectValue placeholder="Todas as categorias" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map((cat) => (
-                    <SelectItem key={cat} value={cat}>
-                      {cat}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <CategoryCombobox
+                categorias={categorias}
+                value={category}
+                onChange={setCategory}
+                carregando={carregandoCategorias}
+                className="w-full sm:w-[240px]"
+              />
 
               <Select value={sort} onValueChange={setSort}>
                 <SelectTrigger className="w-full sm:w-[200px] h-12 border-0 bg-muted/50 hover:bg-muted transition-colors">

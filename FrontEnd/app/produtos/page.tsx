@@ -44,11 +44,11 @@ export default function ProductsPage() {
         if (!response.ok) throw new Error("Erro ao buscar produtos")
         const data: PaginaProdutos = await response.json()
 
-        // o backend já devolve os preços do menor para o maior
-        const produtosComMenorPreco = data.itens.map((produto) => ({
-          ...produto,
-          menorPreco: produto.precos.length > 0 ? produto.precos[0] : undefined,
-        }))
+        // ordena os preços do menor para o maior aqui mesmo, sem depender da ordem do backend
+        const produtosComMenorPreco = data.itens.map((produto) => {
+          const precos = [...produto.precos].sort((a, b) => Number(a.preco) - Number(b.preco))
+          return { ...produto, precos, menorPreco: precos[0] }
+        })
 
         setProducts(produtosComMenorPreco)
         setTotalPages(Math.max(1, data.totalPaginas))

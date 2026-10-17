@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
 import { Trash2, FileDown, Save, ShoppingCart, Plus, Minus } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
+import { exportarListaPdf } from "@/lib/exportar-lista-pdf"
 
 export function ShoppingList() {
   const {
@@ -23,11 +24,13 @@ export function ShoppingList() {
   const { toast } = useToast()
   const [listName, setListName] = useState("Minha Lista de Compras")
 
-  const handleExportPDF = () => {
-    toast({
-      title: "PDF gerado",
-      description: "Sua lista de compras foi exportada como PDF.",
-    })
+  const handleExportPDF = async () => {
+    try {
+      await exportarListaPdf(listName, items)
+    } catch (error) {
+      console.error("Erro ao gerar PDF:", error)
+      toast({ title: "Erro ao gerar PDF", description: "Tente novamente.", variant: "destructive" })
+    }
   }
 
   const handleSaveList = () => {

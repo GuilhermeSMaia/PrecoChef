@@ -7,6 +7,7 @@ import { useShoppingList } from "@/context/shopping-list-context"
 import { PlusCircle, MapPin, Clock, Eye, Flame } from "lucide-react"
 import Link from "next/link"
 import { ProdutoWithPrices } from "@/lib/types"
+import { formatarData } from "@/lib/utils"
 
 interface ProdutoCardProps {
   produto: ProdutoWithPrices
@@ -16,14 +17,15 @@ export function ProductCard({ produto }: ProdutoCardProps) {
   const { addItem } = useShoppingList()
 
   const handleAddBestPrice = () => {
-    if (produto.menorPreco) {
-      addItem(produto, produto.menorPreco, produto.menorPreco.mercado)
-    }
-  }
+    // escolhe o preço mais baixo entre todos os mercados do produto
+    const menor = produto.precos.reduce<(typeof produto.precos)[number] | undefined>(
+      (atual, p) => (atual === undefined || Number(p.preco) < Number(atual.preco) ? p : atual),
+      undefined,
+    )
+    if (!menor) return
 
-  const formatLastUpdated = (dateString: string) => {
-    const date = new Date(dateString)
-    return date.toLocaleDateString("pt-BR")
+    // o backend manda só o nome do mercado; o contexto espera um Mercado { id, nome }
+    addItem(produto, { ...menor, preco: Number(menor.preco) }, { id: menor.mercado, nome: menor.mercado })
   }
 
   const savings =
@@ -73,7 +75,7 @@ export function ProductCard({ produto }: ProdutoCardProps) {
             </div>
             <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
               <Clock className="h-3 w-3" />
-              <span>Atualizado em {formatLastUpdated(produto.menorPreco.ultimaAtualizacao)}</span>
+              <span>Atualizado em {formatarData(produto.menorPreco.ultimaAtualizacao)}</span>
             </div>
           </div>
         )}
@@ -84,7 +86,7 @@ export function ProductCard({ produto }: ProdutoCardProps) {
             <div className="space-y-1">
               {produto.precos.slice(1, 3).map((precoInfo) => (
                 <div
-                  key={precoInfo.id}
+                  key={precoInfo.mercado}
                   className="flex justify-between items-center text-sm p-2 rounded-lg bg-muted/30 theme-transition"
                 >
                   <span className="text-muted-foreground">{precoInfo.mercado}</span>
@@ -105,7 +107,7 @@ export function ProductCard({ produto }: ProdutoCardProps) {
         <Button
           className="flex-1 gap-2 hover-lift theme-transition"
           onClick={handleAddBestPrice}
-          disabled={!produto.menorPreco}
+          disabled={produto.precos.length === 0}
         >
           <PlusCircle className="h-4 w-4" />
           Adicionar melhor

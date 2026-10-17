@@ -1,8 +1,8 @@
 package org.scraper.impl;
 
+import java.io.IOException;
 import java.io.StringReader;
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.net.http.HttpClient;
@@ -14,7 +14,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
@@ -25,7 +24,7 @@ import org.scraper.dto.ScrapedProdutoDTO;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.json.Json;
 import jakarta.json.JsonArray;
-import jakarta.json.JsonNumber;
+import jakarta.json.JsonArrayBuilder;
 import jakarta.json.JsonObject;
 import jakarta.json.JsonReader;
 import jakarta.json.JsonValue;
@@ -33,9 +32,16 @@ import jakarta.json.JsonValue;
 /**
  * Scraper do site https://www.atacadao.com.br
  *
- * O Atacadão roda em VTEX (FastStore). Em vez de ler o HTML, usa a API pública de
- * busca da própria loja, que devolve JSON com nome, marca, departamento e preço:
- *   GET /api/io/_v/api/intelligent-search/product_search/category-1/{departamento}?count=50&page=N
+ * O Atacadão roda em VTEX (FastStore) e tem uma loja (seller) por filial. A coleta é feita em duas etapas:
+ *   1. lista os produtos da filial pela busca da própria loja (nome, marca, departamento, EAN):
+ *      GET /api/io/_v/api/intelligent-search/product_search/category-1/{departamento}?count=50&page=N
+ *          &regionId=...&hideUnavailableItems=true
+ *   2. consulta preço e estoque na filial que atende scraping.atacadao.cep, simulando um carrinho em lote:
+ *      POST /api/checkout/pub/orderForms/simulation
+ * O preço da busca é sempre o genérico do site (seller "1", ~ preço de SP), por isso não é usado.
+ *
+ * A loja de Porto Velho não vende pelo site. O CEP padrão é o de Cuiabá, cuja tabela bate com os encartes
+ * de Rondônia (preço idêntico em 20 de 29 itens comparados em out/2026; Manaus/Belém variam 24-28%).
  *
  * Não usar a rota /_next/data/{buildId}/... : o buildId muda a cada deploy do site.
  */
@@ -46,8 +52,10 @@ public class AtacadaoScraper extends AbstractMercadoScraper {
     private static final String USER_AGENT =
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Safari/537.36";
     private static final String CAMINHO_BUSCA = "/api/io/_v/api/intelligent-search/product_search/category-1/";
-    private static final int ITENS_POR_PAGINA = 50; // máximo aceito pela API
-    private static final int MAX_PAGINAS = 50;      // a VTEX não pagina além de ~2500 itens por busca
+    private static final int ITENS_POR_PAGINA = 50;     // máximo aceito pela API
+    private static final int MAX_PAGINAS = 50;          // a VTEX não pagina além de ~2500 itens por busca
+    private static final int ITENS_POR_SIMULACAO = 100;
+    private static final int MAX_TENTATIVAS = 3;
 
     @ConfigProperty(name = "scraping.atacadao.nome-mercado", defaultValue = "Atacadão")
     String nomeMercado;
@@ -63,9 +71,9 @@ public class AtacadaoScraper extends AbstractMercadoScraper {
     @ConfigProperty(name = "scraping.atacadao.delay-ms", defaultValue = "1000")
     long delayMs;
 
-    // preços variam por filial; vazio = região padrão do site
-    @ConfigProperty(name = "scraping.atacadao.region-id")
-    Optional<String> regionId;
+    // CEP que escolhe a filial (preço e estoque); 78005000 = Cuiabá, usada como referência para Porto Velho
+    @ConfigProperty(name = "scraping.atacadao.cep", defaultValue = "78005000")
+    String cep;
 
     private final HttpClient http = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(15))
@@ -84,14 +92,15 @@ public class AtacadaoScraper extends AbstractMercadoScraper {
 
     @Override
     public List<ScrapedProdutoDTO> scrape() throws Exception {
-        Map<String, ScrapedProdutoDTO> produtos = new LinkedHashMap<>(); // chave = productId da VTEX
+        Filial filial = buscarFilial();
+        Map<String, ProdutoBusca> encontrados = new LinkedHashMap<>(); // chave = productId da VTEX
         String ultimoErro = null;
 
         for (String url : getUrls()) {
             try {
-                int antes = produtos.size();
-                coletarDepartamento(url, produtos);
-                LOG.infof("[%s] %d produtos coletados em %s", nomeMercado, produtos.size() - antes, url);
+                int antes = encontrados.size();
+                coletarDepartamento(url, filial.regionId(), encontrados);
+                LOG.infof("[%s] %d produtos encontrados em %s", nomeMercado, encontrados.size() - antes, url);
             } catch (Exception e) {
                 ultimoErro = e.getMessage();
                 LOG.errorf("[%s] falha ao coletar %s: %s", nomeMercado, url, e.getMessage());
@@ -99,57 +108,165 @@ public class AtacadaoScraper extends AbstractMercadoScraper {
             }
         }
 
-        if (produtos.isEmpty()) {
-            throw new IllegalStateException("nenhum produto coletado: " + ultimoErro);
+        if (encontrados.isEmpty()) {
+            throw new IllegalStateException("nenhum produto encontrado: " + ultimoErro);
         }
-        LOG.infof("[%s] coleta concluída: %d produtos", nomeMercado, produtos.size());
-        return new ArrayList<>(produtos.values());
+        List<ScrapedProdutoDTO> produtos = precificar(new ArrayList<>(encontrados.values()), filial.seller());
+        if (produtos.isEmpty()) {
+            throw new IllegalStateException("nenhum produto com preço/estoque na filial " + filial.seller());
+        }
+        LOG.infof("[%s] coleta concluída: %d de %d produtos com preço na filial %s",
+                nomeMercado, produtos.size(), encontrados.size(), filial.seller());
+        return produtos;
     }
 
     @Override
     protected List<ScrapedProdutoDTO> scrapePagina(String url) throws Exception {
-        Map<String, ScrapedProdutoDTO> produtos = new LinkedHashMap<>();
-        coletarDepartamento(url, produtos);
-        return new ArrayList<>(produtos.values());
+        Filial filial = buscarFilial();
+        Map<String, ProdutoBusca> encontrados = new LinkedHashMap<>();
+        coletarDepartamento(url, filial.regionId(), encontrados);
+        return precificar(new ArrayList<>(encontrados.values()), filial.seller());
     }
 
-    private void coletarDepartamento(String url, Map<String, ScrapedProdutoDTO> produtos) throws Exception {
+    // ---------------------------------------------------------------- etapa 1: catálogo
+
+    private void coletarDepartamento(String url, String regionId, Map<String, ProdutoBusca> encontrados) throws Exception {
         for (int pagina = 1; pagina <= MAX_PAGINAS; pagina++) {
-            Resposta resposta = parseResposta(baixar(url, pagina));
-            resposta.produtos().forEach(produtos::putIfAbsent);
+            PaginaBusca resposta = parseBusca(baixar(url + parametrosBusca(pagina, regionId)));
+            resposta.produtos().forEach(encontrados::putIfAbsent);
 
             if (resposta.quantidadeNaPagina() < ITENS_POR_PAGINA) break; // página incompleta = última
             Thread.sleep(delayMs); // evita sobrecarregar/ser bloqueado pelo site
         }
     }
 
-    private String baixar(String url, int pagina) throws Exception {
-        StringBuilder query = new StringBuilder()
-                .append("?count=").append(ITENS_POR_PAGINA)
-                .append("&page=").append(pagina)
-                .append("&locale=pt-BR");
-        regionId.filter(r -> !r.isBlank())
-                .ifPresent(r -> query.append("&regionId=").append(URLEncoder.encode(r.trim(), StandardCharsets.UTF_8)));
+    // regionId + hideUnavailableItems: só o sortimento da filial (sem isso a busca lista o catálogo
+    // nacional, ~48 mil itens, e o limite de 2500 por departamento cortaria produtos da filial)
+    private static String parametrosBusca(int pagina, String regionId) {
+        return "?count=" + ITENS_POR_PAGINA + "&page=" + pagina + "&locale=pt-BR&hideUnavailableItems=true"
+                + "&regionId=" + URLEncoder.encode(regionId, StandardCharsets.UTF_8);
+    }
 
-        HttpRequest request = HttpRequest.newBuilder(URI.create(url + query))
+    // filial que atende o CEP; sem nenhuma, aborta em vez de gravar o preço genérico do site
+    private Filial buscarFilial() throws Exception {
+        Filial filial = parseFilial(baixar(baseUrl + "/api/checkout/pub/regions?country=BRA&postalCode="
+                + URLEncoder.encode(cep.replaceAll("\\D", ""), StandardCharsets.UTF_8)));
+        if (filial == null) {
+            throw new IllegalStateException("nenhuma filial do Atacadão atende o CEP " + cep
+                    + " pelo site (scraping.atacadao.cep); nada será gravado");
+        }
+        LOG.infof("[%s] preços da filial %s (CEP %s)", nomeMercado, filial.seller(), cep);
+        return filial;
+    }
+
+    // ---------------------------------------------------------------- etapa 2: preços da filial
+
+    private List<ScrapedProdutoDTO> precificar(List<ProdutoBusca> encontrados, String seller) throws Exception {
+        List<ScrapedProdutoDTO> produtos = new ArrayList<>();
+        int falhas = 0;
+
+        for (int inicio = 0; inicio < encontrados.size(); inicio += ITENS_POR_SIMULACAO) {
+            List<ProdutoBusca> lote = encontrados.subList(inicio, Math.min(inicio + ITENS_POR_SIMULACAO, encontrados.size()));
+            try {
+                // mesmo formato de resposta do Nova Era (VTEX)
+                Map<String, BigDecimal> precos = NovaEraScraper.parseSimulacao(simular(lote, seller));
+                for (ProdutoBusca p : lote) {
+                    BigDecimal preco = precos.get(p.itemId());
+                    if (preco != null) produtos.add(p.paraDto(preco));
+                }
+            } catch (Exception e) {
+                falhas++;
+                LOG.errorf("[%s] falha ao consultar preços (itens %d a %d): %s",
+                        nomeMercado, inicio, inicio + lote.size(), e.getMessage());
+            }
+            Thread.sleep(delayMs);
+        }
+
+        if (falhas > 0) LOG.warnf("[%s] %d lotes de preço falharam", nomeMercado, falhas);
+        return produtos;
+    }
+
+    private String simular(List<ProdutoBusca> lote, String seller) throws Exception {
+        JsonArrayBuilder itens = Json.createArrayBuilder();
+        for (ProdutoBusca p : lote) {
+            itens.add(Json.createObjectBuilder().add("id", p.itemId()).add("quantity", 1).add("seller", seller));
+        }
+        String corpo = Json.createObjectBuilder()
+                .add("items", itens)
+                .add("postalCode", cep.replaceAll("\\D", ""))
+                .add("country", "BRA")
+                .build().toString();
+
+        HttpRequest request = HttpRequest.newBuilder(URI.create(baseUrl + "/api/checkout/pub/orderForms/simulation?sc=1"))
+                .timeout(Duration.ofSeconds(60))
+                .header("Accept", "application/json")
+                .header("Content-Type", "application/json")
+                .header("User-Agent", USER_AGENT)
+                .POST(HttpRequest.BodyPublishers.ofString(corpo))
+                .build();
+        return enviar(request, "simulação de preços");
+    }
+
+    private String baixar(String url) throws Exception {
+        HttpRequest request = HttpRequest.newBuilder(URI.create(url))
                 .timeout(Duration.ofSeconds(30))
                 .header("Accept", "application/json")
                 .header("User-Agent", USER_AGENT)
                 .GET()
                 .build();
-
-        HttpResponse<String> response = http.send(request, HttpResponse.BodyHandlers.ofString());
-        if (response.statusCode() != 200) {
-            throw new IllegalStateException("HTTP " + response.statusCode() + " em " + url + " (página " + pagina + ")");
-        }
-        return response.body();
+        return enviar(request, url);
     }
 
-    // quantidadeNaPagina conta também os produtos descartados (sem preço/estoque), para a paginação
-    record Resposta(Map<String, ScrapedProdutoDTO> produtos, int quantidadeNaPagina) {}
+    // a API da VTEX devolve HTTP 500 de vez em quando; tenta de novo algumas vezes antes de desistir
+    private String enviar(HttpRequest request, String descricao) throws Exception {
+        Exception ultimoErro = null;
+        for (int tentativa = 1; tentativa <= MAX_TENTATIVAS; tentativa++) {
+            if (tentativa > 1) Thread.sleep(2000L * (tentativa - 1));
+            try {
+                HttpResponse<String> response = http.send(request, HttpResponse.BodyHandlers.ofString());
+                if (response.statusCode() == 200 || response.statusCode() == 206) return response.body();
+                ultimoErro = new IllegalStateException("HTTP " + response.statusCode() + " em " + descricao);
+                if (response.statusCode() < 500 && response.statusCode() != 429) break; // erro do pedido, não adianta repetir
+            } catch (IOException e) {
+                ultimoErro = e;
+            }
+        }
+        throw ultimoErro;
+    }
 
-    static Resposta parseResposta(String json) {
-        Map<String, ScrapedProdutoDTO> produtos = new LinkedHashMap<>();
+    // ---------------------------------------------------------------- leitura do JSON
+
+    record ProdutoBusca(String itemId, String nome, String categoria, String marca, String ean) {
+        ScrapedProdutoDTO paraDto(BigDecimal preco) {
+            MedidaParser.Medida medida = MedidaParser.parse(nome);
+            ScrapedProdutoDTO dto = new ScrapedProdutoDTO(nome, categoria, medida.unidade(), medida.quantidade(), preco);
+            dto.marca = marca;
+            dto.codigoBarras = ean;
+            return dto;
+        }
+    }
+
+    // quantidadeNaPagina conta também os produtos descartados, para a paginação
+    record PaginaBusca(Map<String, ProdutoBusca> produtos, int quantidadeNaPagina) {}
+
+    record Filial(String regionId, String seller) {}
+
+    // primeira filial da primeira região com filiais; null se nenhuma atende o CEP
+    static Filial parseFilial(String json) {
+        try (JsonReader reader = Json.createReader(new StringReader(json))) {
+            for (JsonValue valor : reader.readArray()) {
+                JsonObject regiao = valor.asJsonObject();
+                JsonArray sellers = regiao.getJsonArray("sellers");
+                if (sellers != null && !sellers.isEmpty()) {
+                    return new Filial(regiao.getString("id", ""), sellers.getJsonObject(0).getString("id", null));
+                }
+            }
+        }
+        return null;
+    }
+
+    static PaginaBusca parseBusca(String json) {
+        Map<String, ProdutoBusca> produtos = new LinkedHashMap<>();
         JsonObject body;
         try (JsonReader reader = Json.createReader(new StringReader(json))) {
             body = reader.readObject();
@@ -161,35 +278,24 @@ public class AtacadaoScraper extends AbstractMercadoScraper {
 
         for (JsonValue valor : lista) {
             JsonObject produto = valor.asJsonObject();
-            ScrapedProdutoDTO dto = converter(produto);
-            if (dto != null) produtos.put(produto.getString("productId", dto.nome), dto);
+            ProdutoBusca p = converter(produto);
+            if (p != null) produtos.put(produto.getString("productId", p.itemId()), p);
         }
-        return new Resposta(produtos, lista.size());
+        return new PaginaBusca(produtos, lista.size());
     }
 
-    // produto VTEX -> DTO; devolve null se não houver preço ou estoque
-    private static ScrapedProdutoDTO converter(JsonObject produto) {
+    // produto VTEX -> dados do catálogo; null se faltar nome ou SKU
+    private static ProdutoBusca converter(JsonObject produto) {
         String nome = produto.getString("productName", "").trim();
         JsonArray items = produto.getJsonArray("items");
         if (nome.isEmpty() || items == null || items.isEmpty()) return null;
 
         JsonObject item = items.getJsonObject(0);
-        JsonArray sellers = item.getJsonArray("sellers");
-        if (sellers == null || sellers.isEmpty()) return null;
+        String itemId = item.getString("itemId", "");
+        if (itemId.isEmpty()) return null;
 
-        JsonObject oferta = sellers.getJsonObject(0).getJsonObject("commertialOffer");
-        if (oferta == null) return null;
-
-        JsonNumber valor = oferta.getJsonNumber("Price");
-        if (valor == null || valor.doubleValue() <= 0 || oferta.getInt("AvailableQuantity", 0) <= 0) return null;
-        BigDecimal preco = valor.bigDecimalValue().setScale(2, RoundingMode.HALF_UP);
-
-        MedidaParser.Medida medida = MedidaParser.parse(nome);
-        ScrapedProdutoDTO dto = new ScrapedProdutoDTO(nome, departamento(produto), medida.unidade(), medida.quantidade(), preco);
         String marca = produto.getString("brand", "").trim();
-        dto.marca = marca.isEmpty() ? null : marca;
-        dto.codigoBarras = item.getString("ean", null);
-        return dto;
+        return new ProdutoBusca(itemId, nome, departamento(produto), marca.isEmpty() ? null : marca, item.getString("ean", null));
     }
 
     // "categories" vem do mais específico ao mais geral: ["/Mercearia/Arroz/", "/Mercearia/"]

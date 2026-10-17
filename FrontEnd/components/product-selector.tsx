@@ -4,54 +4,98 @@ import { useState, useEffect } from "react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Search } from "lucide-react"
-import { DataService } from "@/lib/data-service"
-import type { Product } from "@/lib/types"
+import type { PaginaProdutos, ProdutoWithPrices } from "@/lib/types"
 
-interface ProductSelectorProps {
-  onProductSelect: (product: Product | null) => void
+const LIMITE_SUGESTOES = 10
+
+// busca no backend e já devolve os preços do menor para o maior
+async function buscarProdutos(termo: string, signal?: AbortSignal): Promise<ProdutoWithPrices[]> {
+  const params = new URLSearchParams({ pagina: "0", tamanho: String(LIMITE_SUGESTOES), busca: termo })
+  const response = await fetch(`http://localhost:8080/produtos/paginado?${params}`, { signal })
+  if (!response.ok) throw new Error("Erro ao buscar produtos")
+  const data: PaginaProdutos = await response.json()
+
+  return data.itens.map((produto) => {
+    const precos = produto.precos
+      .map((p) => ({ ...p, preco: Number(p.preco) }))
+      .sort((a, b) => a.preco - b.preco)
+    return { ...produto, precos, menorPreco: precos[0] }
+  })
 }
 
-export function ProductSelector({ onProductSelect }: ProductSelectorProps) {
-  const [searchTerm, setSearchTerm] = useState("")
-  const [suggestions, setSuggestions] = useState<Product[]>([])
+interface ProductSelectorProps {
+  onProductSelect: (product: ProdutoWithPrices | null) => void
+  // termo vindo da URL (/comparador?produto=...), selecionado automaticamente
+  termoInicial?: string
+}
+
+export function ProductSelector({ onProductSelect, termoInicial = "" }: ProductSelectorProps) {
+  const [searchTerm, setSearchTerm] = useState(termoInicial)
+  const [suggestions, setSuggestions] = useState<ProdutoWithPrices[]>([])
   const [showSuggestions, setShowSuggestions] = useState(false)
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
+  const [selectedProduct, setSelectedProduct] = useState<ProdutoWithPrices | null>(null)
+  const [buscando, setBuscando] = useState(false)
 
-  useEffect(() => {
-    const searchProducts = async () => {
-      if (searchTerm.length > 1) {
-        const products = await DataService.searchProducts(searchTerm)
-        setSuggestions(products)
-      } else {
-        setSuggestions([])
-      }
-    }
-
-    const debounceTimer = setTimeout(searchProducts, 300)
-    return () => clearTimeout(debounceTimer)
-  }, [searchTerm])
-
-  const handleSuggestionClick = (product: Product) => {
-    setSearchTerm(product.name)
+  const selecionar = (product: ProdutoWithPrices) => {
+    setSearchTerm(product.produtoname)
     setSelectedProduct(product)
     onProductSelect(product)
     setShowSuggestions(false)
   }
 
-  const handleSearch = () => {
-    const exactMatch = suggestions.find((product) => product.name.toLowerCase() === searchTerm.toLowerCase())
+  const melhorCorrespondencia = (lista: ProdutoWithPrices[], termo: string) =>
+    lista.find((p) => p.produtoname.toLowerCase() === termo.toLowerCase()) ?? lista[0]
 
-    if (exactMatch) {
-      setSelectedProduct(exactMatch)
-      onProductSelect(exactMatch)
-    } else if (suggestions.length > 0) {
-      const firstMatch = suggestions[0]
-      setSelectedProduct(firstMatch)
-      onProductSelect(firstMatch)
-      setSearchTerm(firstMatch.name)
+  // seleciona automaticamente o produto vindo da URL
+  useEffect(() => {
+    if (!termoInicial) return
+    const controller = new AbortController()
+    buscarProdutos(termoInicial, controller.signal)
+      .then((lista) => {
+        const escolhido = melhorCorrespondencia(lista, termoInicial)
+        if (escolhido) selecionar(escolhido)
+      })
+      .catch((error) => {
+        if (!controller.signal.aborted) console.error("Erro ao buscar produto:", error)
+      })
+    return () => controller.abort()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [termoInicial])
+
+  useEffect(() => {
+    if (searchTerm.trim().length < 2) {
+      setSuggestions([])
+      return
     }
+
+    const controller = new AbortController()
+    const debounceTimer = setTimeout(async () => {
+      setBuscando(true)
+      try {
+        setSuggestions(await buscarProdutos(searchTerm.trim(), controller.signal))
+      } catch (error) {
+        if (controller.signal.aborted) return // uma busca mais nova substituiu esta
+        console.error("Erro ao buscar produtos:", error)
+        setSuggestions([])
+      } finally {
+        if (!controller.signal.aborted) setBuscando(false)
+      }
+    }, 300)
+
+    return () => {
+      clearTimeout(debounceTimer)
+      controller.abort()
+    }
+  }, [searchTerm])
+
+  const handleSearch = () => {
+    const escolhido = melhorCorrespondencia(suggestions, searchTerm.trim())
+    if (escolhido) selecionar(escolhido)
     setShowSuggestions(false)
   }
+
+  const semResultados =
+    showSuggestions && searchTerm.trim().length >= 2 && !buscando && suggestions.length === 0 && !selectedProduct
 
   return (
     <div className="space-y-4">
@@ -64,10 +108,11 @@ export function ProductSelector({ onProductSelect }: ProductSelectorProps) {
               onChange={(e) => {
                 setSearchTerm(e.target.value)
                 setShowSuggestions(true)
-                if (!e.target.value) {
-                  setSelectedProduct(null)
-                  onProductSelect(null)
-                }
+                setSelectedProduct(null)
+                if (!e.target.value) onProductSelect(null)
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleSearch()
               }}
               onFocus={() => setShowSuggestions(true)}
               className="pr-10"
@@ -85,14 +130,20 @@ export function ProductSelector({ onProductSelect }: ProductSelectorProps) {
               <div
                 key={product.id}
                 className="px-4 py-3 hover:bg-accent cursor-pointer border-b last:border-b-0"
-                onClick={() => handleSuggestionClick(product)}
+                onClick={() => selecionar(product)}
               >
-                <div className="font-medium">{product.name}</div>
+                <div className="font-medium">{product.produtoname}</div>
                 <div className="text-sm text-muted-foreground">
-                  {product.category} • {product.unit}
+                  {product.categoria} • {product.medida} • {product.precos.length} mercado(s)
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {semResultados && (
+          <div className="absolute z-10 w-full mt-1 bg-background border rounded-md shadow-lg px-4 py-3 text-sm text-muted-foreground">
+            Nenhum produto encontrado para "{searchTerm}"
           </div>
         )}
       </div>
@@ -100,9 +151,9 @@ export function ProductSelector({ onProductSelect }: ProductSelectorProps) {
       {selectedProduct && (
         <div className="bg-muted/30 p-4 rounded-lg">
           <p className="text-sm text-muted-foreground">Comparando preços para:</p>
-          <p className="font-medium text-lg">{selectedProduct.name}</p>
+          <p className="font-medium text-lg">{selectedProduct.produtoname}</p>
           <p className="text-sm text-muted-foreground">
-            {selectedProduct.category} • {selectedProduct.unit}
+            {selectedProduct.categoria} • {selectedProduct.medida}
           </p>
         </div>
       )}

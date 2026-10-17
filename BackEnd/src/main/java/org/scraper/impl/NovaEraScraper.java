@@ -39,7 +39,8 @@ import jakarta.json.JsonValue;
  * (/api/catalog_system/pub/products/search e intelligent-search) sempre devolvem o preço
  * da loja padrão (Manaus), então a coleta é feita em duas etapas:
  *   1. lista os produtos pela intelligent-search com o regionId da cidade (sortimento da loja):
- *      GET /api/io/_v/api/intelligent-search/product_search/category-1/{depto}[/category-2/{sub}]?count=50&page=N&regionId=...
+ *      GET /api/io/_v/api/intelligent-search/product_search/category-1/{depto}[/category-2/{sub}]?count=50&page=N
+ *          &regionId=...&hideUnavailableItems=true
  *   2. consulta o preço e o estoque da loja em lote, simulando um carrinho com o CEP da cidade:
  *      POST /api/checkout/pub/orderForms/simulation
  *
@@ -179,8 +180,10 @@ public class NovaEraScraper extends AbstractMercadoScraper {
         return url.toString();
     }
 
+    // só o regionId não filtra nada; com hideUnavailableItems a busca devolve só o sortimento da loja
+    // (~40% do catálogo, sem perder nenhum item que tenha preço na simulação)
     private static String parametrosBusca(int pagina, String regionId) {
-        return "?count=" + ITENS_POR_PAGINA + "&page=" + pagina + "&locale=pt-BR"
+        return "?count=" + ITENS_POR_PAGINA + "&page=" + pagina + "&locale=pt-BR&hideUnavailableItems=true"
                 + "&regionId=" + URLEncoder.encode(regionId, StandardCharsets.UTF_8);
     }
 

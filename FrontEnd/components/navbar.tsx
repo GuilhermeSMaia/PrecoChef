@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { ShoppingCart, Menu, X, Flame, Settings, Store } from "lucide-react"
+import { ShoppingCart, Menu, X, Flame, Settings, Store, Home } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { useState } from "react"
@@ -12,11 +12,11 @@ import { ColorCustomizer } from "./color-customizer"
 import { Badge } from "@/components/ui/badge"
 
 const navItems = [
-  { name: "Home", path: "/" },
-  { name: "Produtos", path: "/produtos" },
-  { name: "Comparador", path: "/comparador" },
+  { name: "Home", path: "/", icon: Home },
+  { name: "Produtos", path: "/produtos", icon: Flame },
+  { name: "Comparador", path: "/comparador", icon: Menu },
   { name: "Mercados", path: "/mercados", icon: Store },
-  //{ name: "Lista de Compras", path: "/lista" },
+  { name: "Lista de Compras", path: "/lista", icon: ShoppingCart },
   { name: "Admin", path: "/admin", icon: Settings },
 ]
 
@@ -43,7 +43,7 @@ export function Navbar() {
                   <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center theme-transition">
                     <Flame className="h-4 w-4 text-primary-foreground" />
                   </div>
-                  ComparaPreços
+                  PreçoChef
                 </Link>
                 <Button variant="ghost" size="icon" onClick={() => setOpen(false)}>
                   <X className="h-5 w-5" />
@@ -74,7 +74,7 @@ export function Navbar() {
             <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center theme-transition orange-glow">
               <Flame className="h-4 w-4 text-primary-foreground" />
             </div>
-            ComparaPreços
+            PreçoChef
           </Link>
         </div>
 

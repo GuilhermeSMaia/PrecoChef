@@ -20,9 +20,10 @@ public class GetDataById {
     public Response getMercadoData(@PathParam("id") Long id) {
 
         Mercados mercado = MercadoRepository.findById(id);
-        GetAllMercadosDTO dto = new GetAllMercadosDTO(mercado.getId(), mercado.getNome());
-
-        return Response.ok(dto).build();
+        if (mercado == null) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+        return Response.ok(new GetAllMercadosDTO(mercado)).build();
     }
     
 }

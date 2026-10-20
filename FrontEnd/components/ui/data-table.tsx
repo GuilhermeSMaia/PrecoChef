@@ -158,11 +158,7 @@ export function DataTable<TData, TValue>({
           </Table>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-center justify-between space-y-2 sm:space-y-0">
-          <div className="flex-1 text-sm text-muted-foreground">
-            {table.getFilteredSelectedRowModel().rows.length} de {table.getFilteredRowModel().rows.length} linha(s)
-            selecionada(s).
-          </div>
+        <div className="flex flex-col sm:flex-row items-center sm:justify-end space-y-2 sm:space-y-0">
           <div className="flex items-center space-x-6 lg:space-x-8">
             <div className="flex items-center space-x-2">
               <p className="text-sm font-medium">Linhas por página</p>

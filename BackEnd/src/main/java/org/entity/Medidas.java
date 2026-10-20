@@ -21,6 +21,12 @@ public class Medidas extends PanacheEntityBase{
     @OneToMany (mappedBy = "medidas")
     public List<Produtos> produtos;
 
+    public Medidas() {}
+
+    public Medidas(String medida) {
+        this.medida = medida;
+    }
+
     public String getMedida() {
         return medida;
     }

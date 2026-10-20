@@ -10,7 +10,7 @@ import { ShoppingListProvider } from "@/context/shopping-list-context"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Comparador de Preços",
+  title: "PreçoChef",
   description: "Compare preços entre mercados e economize nas suas compras",
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#ffffff" },

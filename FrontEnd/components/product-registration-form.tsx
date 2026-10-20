@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/components/ui/use-toast"
+import { useCategorias } from "@/hooks/use-categorias"
 import { ImageUpload } from "@/components/image-upload"
 import { Progress } from "@/components/ui/progress"
 import { Loader2, Package, CheckCircle } from "lucide-react"
@@ -26,19 +27,6 @@ const productSchema = z.object({
 
 type ProductFormData = z.infer<typeof productSchema>
 
-const categorias = [
-  "Alimentos",
-  "Laticínios",
-  "Bebidas",
-  "Limpeza",
-  "Higiene",
-  "Padaria",
-  "Açougue",
-  "Hortifruti",
-  "Congelados",
-  "Outros",
-]
-
 const medidas = ["kg", "g", "L", "ml", "unidade", "pacote", "caixa", "lata", "garrafa"]
 
 export function ProductRegistrationForm() {
@@ -46,6 +34,8 @@ export function ProductRegistrationForm() {
   const [submitProgress, setSubmitProgress] = useState(0)
   const [isSuccess, setIsSuccess] = useState(false)
   const { toast } = useToast()
+  // o backend só aceita categorias já cadastradas, então a lista vem dele
+  const { categorias, carregando: carregandoCategorias, erro: erroCategorias } = useCategorias()
 
   const form = useForm<ProductFormData>({
     resolver: zodResolver(productSchema),
@@ -159,13 +149,21 @@ export function ProductRegistrationForm() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Categoria *</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value} disabled={carregandoCategorias}>
                       <FormControl>
                         <SelectTrigger className="theme-transition">
-                          <SelectValue placeholder="Selecione uma categoria" />
+                          <SelectValue
+                            placeholder={
+                              carregandoCategorias
+                                ? "Carregando categorias..."
+                                : erroCategorias
+                                  ? "Não foi possível carregar as categorias"
+                                  : "Selecione uma categoria"
+                            }
+                          />
                         </SelectTrigger>
                       </FormControl>
-                      <SelectContent>
+                      <SelectContent className="max-h-80">
                         {categorias.map((categoria) => (
                           <SelectItem key={categoria} value={categoria}>
                             {categoria}

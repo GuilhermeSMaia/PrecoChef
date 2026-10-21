@@ -52,6 +52,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
+import { apiFetch } from "@/lib/api";
 const priceSchema = z.object({
   produtoId: z.string().min(1, "Selecione um produto"),
   preco: z
@@ -134,7 +135,7 @@ export default function SetProductPricePage() {
         throw new Error("Produto não encontrado");
       }
 
-      const response = await fetch("http://localhost:8080/preco/definir", {
+      const response = await apiFetch("/preco/definir", { // envia o token: só admin pode
         method: "POST",
         headers: {
           "Content-Type": "application/json",

@@ -1,18 +1,37 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
+import { useRouter } from "next/navigation"
 import { useShoppingList } from "@/context/shopping-list-context"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
-import { Trash2, FileDown, Save, ShoppingCart, Plus, Minus } from "lucide-react"
+import { Trash2, FileDown, Save, ShoppingCart, Plus, Minus, Loader2 } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { exportarListaPdf } from "@/lib/exportar-lista-pdf"
+import { apiFetch, mensagemDeErro } from "@/lib/api"
+import { useAuth } from "@/context/auth-context"
+import type { ShoppingItem } from "@/lib/types"
+
+const CHAVE_NOME = "shoppingListName"
+const NOME_PADRAO = "Minha Lista de Compras"
+
+// resposta de GET/PUT /lista
+interface ListaSalva {
+  nome: string
+  itens: ShoppingItem[]
+  atualizadaEm: string
+}
+
+const formatarDataHora = (iso: string) =>
+  new Date(iso).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })
 
 export function ShoppingList() {
   const {
     items,
+    carregado,
+    substituirItens,
     removeItem,
     updateQuantity,
     clearList,
@@ -22,7 +41,47 @@ export function ShoppingList() {
     getTotalValue,
   } = useShoppingList()
   const { toast } = useToast()
-  const [listName, setListName] = useState("Minha Lista de Compras")
+  const router = useRouter()
+  const { usuario } = useAuth()
+  const [listName, setListName] = useState(NOME_PADRAO)
+  const [salvando, setSalvando] = useState(false)
+  const [salvaEm, setSalvaEm] = useState<string | null>(null)
+  const listaBuscadaPara = useRef<number | null>(null)
+
+  // o nome da lista sobrevive a ir para o login e voltar
+  useEffect(() => {
+    try {
+      const salvo = localStorage.getItem(CHAVE_NOME)
+      if (salvo) setListName(salvo)
+    } catch {}
+  }, [])
+
+  const mudarNome = (nome: string) => {
+    setListName(nome)
+    try {
+      localStorage.setItem(CHAVE_NOME, nome)
+    } catch {}
+  }
+
+  // ao entrar na conta: se a lista do navegador está vazia, traz a lista salva no servidor
+  useEffect(() => {
+    if (!usuario || !carregado || listaBuscadaPara.current === usuario.id) return
+    listaBuscadaPara.current = usuario.id
+
+    apiFetch("/lista")
+      .then(async (response) => {
+        if (response.status !== 200) return // 204 = ainda não salvou nenhuma
+        const lista: ListaSalva = await response.json()
+        setSalvaEm(lista.atualizadaEm)
+        if (items.length === 0 && lista.itens.length > 0) {
+          substituirItens(lista.itens)
+          mudarNome(lista.nome || NOME_PADRAO)
+          toast({ title: "Lista recuperada", description: `Carregamos a lista salva em ${formatarDataHora(lista.atualizadaEm)}.` })
+        }
+      })
+      .catch((error) => console.error("Erro ao buscar lista salva:", error))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [usuario, carregado])
 
   const handleExportPDF = async () => {
     try {
@@ -33,11 +92,32 @@ export function ShoppingList() {
     }
   }
 
-  const handleSaveList = () => {
-    toast({
-      title: "Lista salva",
-      description: "Sua lista de compras foi salva com sucesso.",
-    })
+  // salvar exige login; sem login a lista continua só no navegador
+  const handleSaveList = async () => {
+    if (!usuario) {
+      router.push("/login?redirect=/lista&motivo=salvar")
+      return
+    }
+
+    setSalvando(true)
+    try {
+      const response = await apiFetch("/lista", {
+        method: "PUT",
+        body: JSON.stringify({ nome: listName, itens: items }),
+      })
+      if (!response.ok) throw new Error(await mensagemDeErro(response, "Não foi possível salvar a lista"))
+      const lista: ListaSalva = await response.json()
+      setSalvaEm(lista.atualizadaEm)
+      toast({ title: "Lista salva", description: "Sua lista de compras foi salva na sua conta." })
+    } catch (error) {
+      toast({
+        title: "Erro ao salvar",
+        description: error instanceof Error ? error.message : "Tente novamente.",
+        variant: "destructive",
+      })
+    } finally {
+      setSalvando(false)
+    }
   }
 
   const totalByMarket = getTotalByMarket()
@@ -63,6 +143,11 @@ export function ShoppingList() {
         <Button asChild className="theme-transition">
           <a href="/produtos">Ver produtos</a>
         </Button>
+        {!usuario && (
+          <p className="mt-4 text-sm text-muted-foreground">
+            Já salvou uma lista? <a href="/login?redirect=/lista">Entre na sua conta</a> para recuperá-la.
+          </p>
+        )}
       </div>
     )
   }
@@ -72,14 +157,21 @@ export function ShoppingList() {
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
         <Input
           value={listName}
-          onChange={(e) => setListName(e.target.value)}
+          onChange={(e) => mudarNome(e.target.value)}
           className="text-lg font-medium max-w-md theme-transition"
         />
 
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" size="sm" onClick={handleSaveList} className="gap-1 theme-transition">
-            <Save className="h-4 w-4" />
-            Salvar
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleSaveList}
+            disabled={salvando}
+            className="gap-1 theme-transition"
+            title={usuario ? "Salvar na sua conta" : "Entre na sua conta para salvar"}
+          >
+            {salvando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            {usuario ? "Salvar" : "Entrar para salvar"}
           </Button>
           <Button variant="outline" size="sm" onClick={handleExportPDF} className="gap-1 theme-transition">
             <FileDown className="h-4 w-4" />
@@ -91,6 +183,10 @@ export function ShoppingList() {
           </Button>
         </div>
       </div>
+
+      {usuario && salvaEm && (
+        <p className="-mt-3 text-xs text-muted-foreground">Salva na sua conta em {formatarDataHora(salvaEm)}</p>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">

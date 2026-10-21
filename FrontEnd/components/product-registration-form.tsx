@@ -19,6 +19,7 @@ import { ImageUpload } from "@/components/image-upload"
 import { Progress } from "@/components/ui/progress"
 import { Loader2, Package, CheckCircle } from "lucide-react"
 
+import { apiFetch } from "@/lib/api"
 const productSchema = z.object({
   nome: z.string().min(2, "Nome deve ter pelo menos 2 caracteres").max(100, "Nome muito longo"),
   categoria: z.string().min(1, "Selecione uma categoria"),
@@ -61,7 +62,7 @@ export function ProductRegistrationForm() {
       })
     }, 200)
 
-    const response = await fetch("http://localhost:8080/produtos/create", {
+    const response = await apiFetch("/produtos/create", { // envia o token: só admin pode
       method: "POST",
       headers: {
         "Content-Type": "application/json",

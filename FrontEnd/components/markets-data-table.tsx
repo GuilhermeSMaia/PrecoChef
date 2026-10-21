@@ -32,6 +32,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import Link from "next/link"
 import { MarketDetailsDialog } from "@/components/market-details-dialog"
+import { useAuth } from "@/context/auth-context"
 import type { MercadoComEnderecos } from "@/lib/types"
 
 type Market = MercadoComEnderecos
@@ -50,6 +51,7 @@ export function MarketsDataTable() {
   const [markets, setMarkets] = useState<Market[]>([])
   const [loading, setLoading] = useState(true)
   const [mercadoDetalhes, setMercadoDetalhes] = useState<Market | null>(null)
+  const { isAdmin } = useAuth()
   const { toast } = useToast()
 
   useEffect(() => {
@@ -163,6 +165,8 @@ export function MarketsDataTable() {
               <span className="sr-only">Ver detalhes de {market.name}</span>
               <Eye className="h-4 w-4" />
             </Button>
+            {/* editar e definir valores: só admin */}
+            {isAdmin && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="h-8 w-8 p-0">
@@ -187,6 +191,7 @@ export function MarketsDataTable() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+            )}
           </div>
         )
       },

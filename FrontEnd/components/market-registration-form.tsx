@@ -12,6 +12,7 @@ import { useToast } from "@/components/ui/use-toast"
 import { Progress } from "@/components/ui/progress"
 import { Loader2, Store, CheckCircle, MapPin, Phone, Mail, Plus, Trash2, Globe } from "lucide-react"
 
+import { apiFetch } from "@/lib/api"
 const EnderecoSchema = z.object({
   id: z.number().optional(), // id do endereço já salvo (edição)
   descricao: z.string().max(100, "Descrição muito longa").optional(),
@@ -122,7 +123,7 @@ export function MarketRegistrationForm({ id }: MarketRegistrationFormProps) {
       })
     }, 200)
 
-    const response = await fetch("http://localhost:8080/mercados/create", {
+    const response = await apiFetch("/mercados/create", { // envia o token: só admin pode
       method: "POST",
       headers: {
         "Content-Type": "application/json",

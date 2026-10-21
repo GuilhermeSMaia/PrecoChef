@@ -4,10 +4,12 @@ import org.controlers.DTO.CreateProdutoDTO;
 import org.entity.Categoria;
 import org.entity.Medidas;
 import org.entity.Produtos;
+import org.entity.Usuarios;
 import org.repository.CategoriaRepository;
 import org.repository.MedidasRepository;
 import org.repository.ProdutosRepository;
 
+import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.POST;
@@ -16,6 +18,8 @@ import jakarta.ws.rs.core.Response;
 
 
 @Path("/produtos")
+// só admin altera dados (o token JWT precisa ter o grupo "admin")
+@RolesAllowed(Usuarios.ROLE_ADMIN)
 public class CreateProduto {
     @Inject
     ProdutosRepository produtoRepository;

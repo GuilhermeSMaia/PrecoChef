@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { ShoppingCart, Menu, X, Flame, Settings, Store, Home } from "lucide-react"
+import { ShoppingCart, Menu, X, Flame, Settings, Store, Home, LogIn, LogOut } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { useState } from "react"
@@ -10,6 +10,15 @@ import { useShoppingList } from "@/context/shopping-list-context"
 import { ModeToggle } from "./mode-toggle"
 import { ColorCustomizer } from "./color-customizer"
 import { Badge } from "@/components/ui/badge"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { useAuth } from "@/context/auth-context"
 
 const navItems = [
   { name: "Home", path: "/", icon: Home },
@@ -17,7 +26,7 @@ const navItems = [
   { name: "Comparador", path: "/comparador", icon: Menu },
   { name: "Mercados", path: "/mercados", icon: Store },
   { name: "Lista de Compras", path: "/lista", icon: ShoppingCart },
-  { name: "Admin", path: "/admin", icon: Settings },
+  { name: "Admin", path: "/admin", icon: Settings, soAdmin: true },
 ]
 
 export function Navbar() {
@@ -25,6 +34,9 @@ export function Navbar() {
   const [open, setOpen] = useState(false)
   const { items, getTotalItems } = useShoppingList()
   const totalItems = getTotalItems()
+  const { usuario, isAdmin, carregando, logout } = useAuth()
+  // o item "Admin" só aparece para administradores
+  const itensVisiveis = navItems.filter((item) => !item.soAdmin || isAdmin)
 
   return (
     <header className="sticky top-0 z-50 w-full glass-effect border-b theme-transition">
@@ -50,7 +62,7 @@ export function Navbar() {
                 </Button>
               </div>
               <nav className="flex flex-col gap-2">
-                {navItems.map((item) => {
+                {itensVisiveis.map((item) => {
                   const Icon = item.icon
                   return (
                     <Link
@@ -79,7 +91,7 @@ export function Navbar() {
         </div>
 
         <nav className="hidden lg:flex items-center gap-1">
-          {navItems.map((item) => {
+          {itensVisiveis.map((item) => {
             const Icon = item.icon
             return (
               <Link
@@ -98,7 +110,53 @@ export function Navbar() {
 
         <div className="flex items-center gap-2">
           <ModeToggle />
-          
+          {!carregando &&
+            (usuario ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="gap-2 px-2 hover-lift theme-transition">
+                    <span className="h-8 w-8 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-semibold">
+                      {usuario.nome.trim().charAt(0).toUpperCase()}
+                    </span>
+                    <span className="hidden sm:inline max-w-[120px] truncate">{usuario.nome.split(" ")[0]}</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel className="font-normal">
+                    <p className="font-medium truncate">{usuario.nome}</p>
+                    <p className="text-xs text-muted-foreground truncate">{usuario.email}</p>
+                    {isAdmin && <Badge className="mt-1.5">Administrador</Badge>}
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link href="/lista">
+                      <ShoppingCart className="mr-2 h-4 w-4" />
+                      Minha lista
+                    </Link>
+                  </DropdownMenuItem>
+                  {isAdmin && (
+                    <DropdownMenuItem asChild>
+                      <Link href="/admin">
+                        <Settings className="mr-2 h-4 w-4" />
+                        Painel admin
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={logout} className="text-destructive focus:text-destructive">
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Sair
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <Button asChild variant="outline" size="sm" className="gap-2 hover-lift theme-transition">
+                <Link href={`/login?redirect=${encodeURIComponent(pathname)}`}>
+                  <LogIn className="h-4 w-4" />
+                  Entrar
+                </Link>
+              </Button>
+            ))}
         </div>
       </div>
     </header>

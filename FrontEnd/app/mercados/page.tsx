@@ -5,8 +5,10 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Store, Plus, BarChart3, Users } from "lucide-react"
 import Link from "next/link"
+import { useAuth } from "@/context/auth-context"
 
 export default function MercadosPage() {
+  const { isAdmin } = useAuth()
   return (
     <div className="min-h-screen gradient-bg">
       <div className="container mx-auto px-4 py-8">
@@ -18,12 +20,14 @@ export default function MercadosPage() {
                 Visualize e gerencie todos os mercados registrados na plataforma
               </p>
             </div>
-            <Link href="/admin">
-              <Button className="gap-2 hover-lift">
-                <Plus className="h-4 w-4" />
-                Cadastrar Mercado
-              </Button>
-            </Link>
+            {isAdmin && (
+              <Link href="/admin">
+                <Button className="gap-2 hover-lift">
+                  <Plus className="h-4 w-4" />
+                  Cadastrar Mercado
+                </Button>
+              </Link>
+            )}
           </div>
         </div>
 

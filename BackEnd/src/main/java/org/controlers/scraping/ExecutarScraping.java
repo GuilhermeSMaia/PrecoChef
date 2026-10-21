@@ -2,11 +2,13 @@ package org.controlers.scraping;
 
 import java.util.List;
 
+import org.entity.Usuarios;
 import org.scraper.MercadoScraper;
 import org.scraper.ProdutoPrecoSyncService;
 import org.scraper.dto.ScrapedProdutoDTO;
 
 import jakarta.enterprise.inject.Instance;
+import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
@@ -15,6 +17,8 @@ import jakarta.ws.rs.core.Response;
 
 // dispara o webscraping na hora, sem esperar o cron. Ex.: POST /scraping/executar?mercado=Irmãos Gonçalves
 @Path("/scraping")
+// só admin altera dados (o token JWT precisa ter o grupo "admin")
+@RolesAllowed(Usuarios.ROLE_ADMIN)
 public class ExecutarScraping {
 
     @Inject

@@ -6,6 +6,7 @@ import { Navbar } from "@/components/navbar"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "@/components/ui/toaster"
 import { ShoppingListProvider } from "@/context/shopping-list-context"
+import { AuthProvider } from "@/context/auth-context"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -28,6 +29,7 @@ export default function RootLayout({
     <html lang="pt-BR" suppressHydrationWarning>
       <body className={`${inter.className} antialiased`}>
         <ThemeProvider>
+          <AuthProvider>
           <ShoppingListProvider>
             <div className="min-h-screen flex flex-col">
               <Navbar />
@@ -40,6 +42,7 @@ export default function RootLayout({
             </div>
             <Toaster />
           </ShoppingListProvider>
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>

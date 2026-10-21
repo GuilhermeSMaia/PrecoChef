@@ -6,10 +6,12 @@ import org.controlers.DTO.DefinirPrecoDTO;
 import org.entity.Mercados;
 import org.entity.Precos;
 import org.entity.Produtos;
+import org.entity.Usuarios;
 import org.repository.MercadoRepository;
 import org.repository.PrecosRepository;
 import org.repository.ProdutosRepository;
 
+import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.POST;
@@ -17,6 +19,8 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.core.Response;
 
 @Path("/preco")
+// só admin altera dados (o token JWT precisa ter o grupo "admin")
+@RolesAllowed(Usuarios.ROLE_ADMIN)
 public class DefinirPreco {
     @Inject
     PrecosRepository precoRepository;

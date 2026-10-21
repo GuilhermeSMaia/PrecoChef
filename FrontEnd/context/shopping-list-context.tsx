@@ -12,6 +12,9 @@ import type { ShoppingItem, Produto, Preco, Mercado } from "@/lib/types"
 // Atualizar o tipo ShoppingListContextType
 type ShoppingListContextType = {
   items: ShoppingItem[]
+  // true depois de ler a lista do localStorage (antes disso items está vazio mesmo havendo lista)
+  carregado: boolean
+  substituirItens: (items: ShoppingItem[]) => void
   addItem: (produto: Produto, preco: Preco, mercado: Mercado) => void
   removeItem: (productId: string, marketId: string) => void
   updateQuantity: (productId: string, marketId: string, quantity: number) => void
@@ -110,6 +113,9 @@ export function ShoppingListProvider({ children }: { children: ReactNode }) {
     )
   }
 
+  // troca a lista inteira (ex.: ao carregar a lista salva na conta)
+  const substituirItens = (novos: ShoppingItem[]) => setItems(novos)
+
   const clearList = () => {
     setItems([])
     toast({
@@ -168,6 +174,8 @@ export function ShoppingListProvider({ children }: { children: ReactNode }) {
     <ShoppingListContext.Provider
       value={{
         items,
+        carregado,
+        substituirItens,
         addItem,
         removeItem,
         updateQuantity,

@@ -11,10 +11,12 @@ import { Card, CardContent } from "@/components/ui/card"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { PaginaProdutos, ProdutoWithPrices } from "@/lib/types"
+import { useAuth } from "@/context/auth-context"
 
 const PAGE_SIZE = 24
 
 export default function ProductsPage() {
+  const { isAdmin } = useAuth()
   const [products, setProducts] = useState<ProdutoWithPrices[]>([])
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(1)
@@ -98,12 +100,14 @@ export default function ProductsPage() {
                 Compare preços entre mercados e encontre as melhores ofertas
               </p>
             </div>
-            <Link href="/admin">
-              <Button className="gap-2 hover-lift">
-                <Plus className="h-4 w-4" />
-                Cadastrar Produto
-              </Button>
-            </Link>
+            {isAdmin && (
+              <Link href="/admin">
+                <Button className="gap-2 hover-lift">
+                  <Plus className="h-4 w-4" />
+                  Cadastrar Produto
+                </Button>
+              </Link>
+            )}
           </div>
 
           {/* Stats Cards */}

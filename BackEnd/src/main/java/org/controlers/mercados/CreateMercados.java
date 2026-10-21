@@ -10,8 +10,10 @@ import org.controlers.DTO.CreateMercadoDTO;
 import org.controlers.DTO.EnderecoDTO;
 import org.entity.Enderecos;
 import org.entity.Mercados;
+import org.entity.Usuarios;
 import org.repository.MercadoRepository;
 
+import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.POST;
@@ -19,6 +21,8 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.core.Response;
 
 @Path("/mercados")
+// só admin altera dados (o token JWT precisa ter o grupo "admin")
+@RolesAllowed(Usuarios.ROLE_ADMIN)
 public class CreateMercados {
     @Inject
     MercadoRepository mercadoRepository;
